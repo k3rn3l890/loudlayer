@@ -1,5 +1,6 @@
 export interface Product {
   id: string;
+  slug: string;
   name: string;
   price: number;
   discountPrice?: number;
@@ -9,6 +10,20 @@ export interface Product {
   code?: string;
   tags?: string[];
   description?: string;
+  stock?: number;
+}
+
+export interface Review {
+  id: number;
+  rating: number;
+  body: string;
+  user_name: string;
+  created_at: string;
+}
+
+export interface ReviewStats {
+  count: number;
+  average: number;
 }
 
 export interface Testimonial {

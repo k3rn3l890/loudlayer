@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Link } from "react-router-dom";
 import { X, Trash2, Plus, Minus, CreditCard, ShoppingBag, CheckCircle } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { CartItem } from "../types";
@@ -7,9 +8,11 @@ interface CartDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   cartItems: CartItem[];
-  onUpdateQuantity: (productId: string, quantity: number) => void;
-  onRemoveItem: (productId: string) => void;
+  onUpdateQuantity: (productId: string, quantity: number, selectedSize?: string) => void;
+  onRemoveItem: (productId: string, selectedSize?: string) => void;
   onClearCart: () => void;
+  user?: { id: number; email: string; name: string } | null;
+  onCheckout?: (items: CartItem[], address: string) => Promise<void>;
 }
 
 export default function CartDrawer({
@@ -19,6 +22,8 @@ export default function CartDrawer({
   onUpdateQuantity,
   onRemoveItem,
   onClearCart,
+  user,
+  onCheckout,
 }: CartDrawerProps) {
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [address, setAddress] = useState("");
@@ -29,19 +34,22 @@ export default function CartDrawer({
   // Math
   const itemsCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
   const subtotal = cartItems.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
-  const shippingFees = subtotal > 150 ? 0 : 15;
+  const shippingFees = 20;
   const grandTotal = subtotal + shippingFees;
 
-  const handleCheckoutSubmit = (e: React.FormEvent) => {
+  const handleCheckoutSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (address && city && zip) {
-      setOrderCompleted(true);
-      setTimeout(() => {
-        // clear variables on simulated delay
+    if (!address || !city || !zip) return;
+    if (onCheckout && user) {
+      try {
+        await onCheckout(cartItems, `${address}, ${city}, ${zip}`);
+        setOrderCompleted(true);
         setAddress("");
         setCity("");
         setZip("");
-      }, 500);
+      } catch {
+        // error handled by parent
+      }
     }
   };
 
@@ -112,7 +120,7 @@ export default function CartDrawer({
                       DELIVERY ADDRESS DETAILS:
                     </span>
                     <p className="text-xs font-semibold text-neutral-800">
-                      Vessel Courier Delivery
+                      LoudLayer Shipping
                     </p>
                     <p className="text-xs text-neutral-600">
                       Expected shipment arrival in 3-5 business days. Notification code sent to verified email.
@@ -226,9 +234,11 @@ export default function CartDrawer({
                 /* Standard Bag items list */
                 <div className="space-y-4">
                   {cartItems.map((item) => (
-                    <div
+                    <Link
                       key={`${item.product.id}-${item.selectedSize}`}
-                      className="flex gap-4 p-3 bg-neutral-50 border border-neutral-100 rounded-2xl hover:border-neutral-200 transition group"
+                      to={`/products/${item.product.slug}`}
+                      onClick={onClose}
+                      className="flex gap-4 p-3 bg-neutral-50 border border-neutral-100 rounded-2xl hover:border-neutral-200 transition group cursor-pointer"
                     >
                       {/* Item pic */}
                       <div className="w-20 aspect-[4/5] rounded-xl overflow-hidden bg-neutral-100 shrink-0">
@@ -248,7 +258,7 @@ export default function CartDrawer({
                               {item.product.name}
                             </h4>
                             <button
-                              onClick={() => onRemoveItem(item.product.id)}
+                              onClick={(e) => { e.stopPropagation(); e.preventDefault(); onRemoveItem(item.product.id, item.selectedSize); }}
                               className="text-neutral-400 hover:text-red-500 p-1 rounded-full transition cursor-pointer"
                               title="Delete Item"
                             >
@@ -259,6 +269,11 @@ export default function CartDrawer({
                           <span className="font-mono text-[9px] text-neutral-400 uppercase tracking-wider block mt-0.5">
                             SIZE: <span className="text-neutral-800 font-bold underline">{item.selectedSize || "M"}</span>
                           </span>
+                          {item.product.stock !== undefined && (
+                            <span className={`font-mono text-[8px] mt-1 block ${item.product.stock === 0 ? "text-red-500" : item.product.stock < 5 ? "text-amber-500" : "text-green-600"}`}>
+                              {item.product.stock === 0 ? "Out of Stock" : `${item.product.stock} available`}
+                            </span>
+                          )}
                         </div>
 
                         {/* Increment counters and prices */}
@@ -266,7 +281,7 @@ export default function CartDrawer({
                           {/* Counter */}
                           <div className="flex items-center gap-1 border border-neutral-200 bg-white rounded-full p-1">
                             <button
-                              onClick={() => onUpdateQuantity(item.product.id, Math.max(1, item.quantity - 1))}
+                              onClick={(e) => { e.stopPropagation(); e.preventDefault(); onUpdateQuantity(item.product.id, Math.max(1, item.quantity - 1), item.selectedSize); }}
                               className="p-1 hover:bg-neutral-100 rounded-full transition text-neutral-500 cursor-pointer"
                               aria-label="Decrease"
                             >
@@ -276,8 +291,13 @@ export default function CartDrawer({
                               {item.quantity}
                             </span>
                             <button
-                              onClick={() => onUpdateQuantity(item.product.id, item.quantity + 1)}
-                              className="p-1 hover:bg-neutral-100 rounded-full transition text-neutral-500 cursor-pointer"
+                              onClick={(e) => { e.stopPropagation(); e.preventDefault(); onUpdateQuantity(item.product.id, Math.min((item.product.stock ?? item.quantity), item.quantity + 1), item.selectedSize); }}
+                              disabled={item.product.stock !== undefined && item.quantity >= item.product.stock}
+                              className={`p-1 rounded-full transition cursor-pointer ${
+                                item.product.stock !== undefined && item.quantity >= item.product.stock
+                                  ? "text-neutral-300 cursor-not-allowed"
+                                  : "hover:bg-neutral-100 text-neutral-500"
+                              }`}
                               aria-label="Increase"
                             >
                               <Plus className="w-3 h-3" />
@@ -285,11 +305,11 @@ export default function CartDrawer({
                           </div>
 
                           <span className="text-sm font-sans font-black text-neutral-900">
-                            ${(item.product.price * item.quantity).toFixed(2)}
+                            ₵{(item.product.price * item.quantity).toFixed(2)}
                           </span>
                         </div>
                       </div>
-                    </div>
+                    </Link>
                   ))}
                 </div>
               )}
@@ -302,23 +322,18 @@ export default function CartDrawer({
                 <div className="space-y-1.5 text-xs font-sans text-neutral-600">
                   <div className="flex justify-between">
                     <span>Products Subtotal</span>
-                    <span className="font-mono text-neutral-800 font-semibold">${subtotal.toFixed(2)}</span>
+                    <span className="font-mono text-neutral-800 font-semibold">₵{subtotal.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Vessel Courier Shipping</span>
+                    <span>LoudLayer Shipping</span>
                     <span className="font-mono text-neutral-800 font-semibold">
-                      {shippingFees === 0 ? "FREE" : `$${shippingFees.toFixed(2)}`}
+                      ₵{shippingFees.toFixed(2)}
                     </span>
                   </div>
-                  {shippingFees > 0 && (
-                    <div className="text-[10px] text-orange-500 text-right leading-none font-medium">
-                      Spend ${(150 - subtotal).toFixed(2)} more for free shipping!
-                    </div>
-                  )}
                   
                   <div className="pt-2 border-t border-neutral-200 flex justify-between text-sm text-neutral-900 font-bold">
                     <span>Grand Estimated Total</span>
-                    <span className="font-mono text-neutral-950 font-black text-base">${grandTotal.toFixed(2)}</span>
+                    <span className="font-mono text-neutral-950 font-black text-base">₵{grandTotal.toFixed(2)}</span>
                   </div>
                 </div>
 

@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, ShieldCheck, ShoppingCart } from "lucide-react";
+import { Link } from "react-router-dom";
+import { ArrowLeft, ArrowRight, ShieldCheck, ShoppingCart, Eye } from "lucide-react";
 import { motion } from "motion/react";
 import { DISCOVER_PRODUCTS } from "../data";
 import { Product } from "../types";
@@ -100,7 +101,7 @@ export default function JacketMomentoCarousel({
                   
                   {/* Floating price overlay */}
                   <span className="absolute top-3 right-3 bg-neutral-950/90 text-white font-mono text-xs font-bold px-3 py-1 rounded-full backdrop-blur-sm shadow border border-white/15">
-                    ${jacket.price}
+                    ₵{jacket.price}
                   </span>
 
                   {/* "Wear the Moment" hover layer or constant visible if highlithed */}
@@ -110,7 +111,7 @@ export default function JacketMomentoCarousel({
                       <span>[Wear the Moment]</span>
                     </div>
                   ) : (
-                    <div className="absolute inset-0 bg-neutral-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <div className="absolute inset-0 bg-neutral-950/40 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex items-center justify-center">
                       <span className="bg-white text-neutral-950 text-[10px] font-mono tracking-wider px-3 py-2 rounded-full uppercase shadow">
                         Highlight Spot
                       </span>
@@ -145,15 +146,23 @@ export default function JacketMomentoCarousel({
                       + Save List
                     </button>
 
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onAddToCart(jacket, "M");
-                      }}
-                      className="h-8 px-3 rounded-full bg-neutral-900 hover:bg-orange-500 text-white font-mono text-[10px] font-bold tracking-widest uppercase flex items-center gap-1.5 transition cursor-pointer"
-                    >
-                      <ShoppingCart className="w-3 h-3" /> ADD BAG
-                    </button>
+                    <div className="flex gap-1.5">
+                      <Link
+                        to={`/products/${jacket.slug}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="h-8 w-8 rounded-full border border-neutral-200 hover:border-neutral-500 text-neutral-500 hover:text-neutral-900 flex items-center justify-center transition cursor-pointer"
+                        title="View Details"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                      </Link>
+                      <Link
+                        to={`/products/${jacket.slug}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="h-8 px-3 rounded-full bg-neutral-900 hover:bg-orange-500 text-white font-mono text-[10px] font-bold tracking-widest uppercase flex items-center gap-1.5 transition cursor-pointer"
+                      >
+                        <ShoppingCart className="w-3 h-3" /> ADD BAG
+                      </Link>
+                    </div>
                   </div>
                 </div>
 

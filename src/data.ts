@@ -28,6 +28,7 @@ export const PARTNERS = [
 export const MOMENTS_PRODUCTS: Product[] = [
   {
     id: "m1",
+    slug: "international-going-distance-2026",
     name: "©International - going distance 2026",
     price: 120,
     image: momentsImage1,
@@ -37,6 +38,7 @@ export const MOMENTS_PRODUCTS: Product[] = [
   },
   {
     id: "m2",
+    slug: "international-just-do-it-2026",
     name: "©International - just do it 2026",
     price: 180,
     discountPercentage: "45%",
@@ -113,6 +115,7 @@ export const TESTIMONIALS: Testimonial[] = [
 export const DISCOVER_PRODUCTS: Product[] = [
   {
     id: "c1",
+    slug: "velour-orange-trek-shell",
     name: "velour - Orange Trek Shell",
     price: 195,
     category: "Jacket",
@@ -122,6 +125,7 @@ export const DISCOVER_PRODUCTS: Product[] = [
   },
   {
     id: "c2",
+    slug: "velour-sage-windshield",
     name: "velour - Sage Windshield",
     price: 210,
     category: "Outer",
@@ -131,6 +135,7 @@ export const DISCOVER_PRODUCTS: Product[] = [
   },
   {
     id: "c3",
+    slug: "velour-premium-heavy-tshirt",
     name: "velour - Premium Heavy T-Shirt",
     price: 85,
     category: "Shirt",
@@ -140,6 +145,7 @@ export const DISCOVER_PRODUCTS: Product[] = [
   },
   {
     id: "c4",
+    slug: "velour-block-field-track",
     name: "velour - Block Field Track",
     price: 240,
     category: "Jacket",

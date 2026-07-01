@@ -1,19 +1,35 @@
-import { useState, useEffect } from "react";
-import { Plus, Sparkles } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { ShoppingBag, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { animate, createTimeline, utils } from "animejs";
 import heroImage from "../../loudlayer_assets/heroSection_image-.png";
 import maleFemaleFront from "../../loudlayer_assets/male_female_front.jpg";
 import maleHero from "../../loudlayer_assets/male-hero.jpg";
 import maleFrontFemaleBack from "../../loudlayer_assets/maleFront_femaleBack.jpg";
 
 interface HeroProps {
-  onAddCurated: () => void;
   onExploreClick: () => void;
+  onViewStore: () => void;
 }
 
-export default function Hero({ onAddCurated, onExploreClick }: HeroProps) {
+function splitToChars(text: string) {
+  return [...text].map((char, i) => (
+    <span
+      key={i}
+      className="anime-char"
+      style={{ display: "inline-block", opacity: 0 }}
+    >
+      {char === " " ? "\u00A0" : char}
+    </span>
+  ));
+}
+
+export default function Hero({ onExploreClick, onViewStore }: HeroProps) {
   const images = [heroImage, maleFemaleFront, maleHero, maleFrontFemaleBack];
   const [currentIndex, setCurrentIndex] = useState(0);
+  const leftRef = useRef<HTMLDivElement>(null);
+  const rightRef = useRef<HTMLDivElement>(null);
+  const animated = useRef(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -21,6 +37,74 @@ export default function Hero({ onAddCurated, onExploreClick }: HeroProps) {
     }, 4000);
     return () => clearInterval(interval);
   }, [images.length]);
+
+  useEffect(() => {
+    if (animated.current) return;
+    animated.current = true;
+
+    const leftChars = leftRef.current?.querySelectorAll(".anime-char");
+    const rightChars = rightRef.current?.querySelectorAll(".anime-char");
+
+    const tl = createTimeline({});
+
+    if (leftChars?.length) {
+      tl.set(
+        leftChars,
+        {
+          translateX: () => utils.random(-100, 100),
+          translateY: () => utils.random(-80, 80),
+          rotateZ: () => utils.random(-15, 15),
+          scale: 0.65,
+          opacity: 0.85,
+        },
+        0
+      );
+
+      tl.add(
+        leftChars,
+        {
+          translateX: 0,
+          translateY: 0,
+          rotateZ: 0,
+          scale: 1,
+          opacity: 1,
+          easing: "easeOutBack(1.7)",
+          delay: utils.stagger(30, { from: "first" }),
+          duration: 550,
+        },
+        500
+      );
+    }
+
+    if (rightChars?.length) {
+      tl.set(
+        rightChars,
+        {
+          translateX: () => utils.random(-100, 100),
+          translateY: () => utils.random(-80, 80),
+          rotateZ: () => utils.random(-15, 15),
+          scale: 0.65,
+          opacity: 0.85,
+        },
+        0
+      );
+
+      tl.add(
+        rightChars,
+        {
+          translateX: 0,
+          translateY: 0,
+          rotateZ: 0,
+          scale: 1,
+          opacity: 1,
+          easing: "easeOutBack(1.7)",
+          delay: utils.stagger(30, { from: "first" }),
+          duration: 550,
+        },
+        700
+      );
+    }
+  }, []);
 
   return (
     <section className="relative w-full overflow-hidden bg-zinc-50 border-b border-neutral-200/50 pt-8 pb-14 px-6 md:px-12">
@@ -32,22 +116,17 @@ export default function Hero({ onAddCurated, onExploreClick }: HeroProps) {
       <div className="max-w-7xl mx-auto relative flex flex-col items-center">
         {/* Main Grid: Typo Left + Model Center + Typo Right */}
         <div className="relative w-full grid grid-cols-1 md:grid-cols-12 gap-4 items-center min-h-[460px] md:min-h-[520px]">
-          
+
           {/* LTL: "where - style" */}
           <div className="md:col-span-4 z-10 select-none order-2 md:order-1 flex flex-col justify-center text-left">
-            <motion.div
-              initial={{ opacity: 0, x: -60 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8, ease: "easeOut" }}
-              className="space-y-0 md:-space-y-4"
-            >
+            <div ref={leftRef} className="space-y-0 md:-space-y-4">
               <h1 className="text-6xl sm:text-7xl lg:text-[7.5rem] font-sans font-black tracking-tighter text-neutral-900 leading-none">
-                where
+                {splitToChars("where")}
               </h1>
               <h1 className="text-6xl sm:text-7xl lg:text-[7.5rem] font-sans font-black tracking-tighter text-neutral-900 leading-none flex items-center gap-2">
-                - style
+                {splitToChars("- style")}
               </h1>
-            </motion.div>
+            </div>
 
             {/* Stylized Collection Meta Block */}
             <motion.div
@@ -62,7 +141,7 @@ export default function Hero({ onAddCurated, onExploreClick }: HeroProps) {
               <p className="text-xs md:text-sm text-neutral-600 font-light leading-relaxed">
                 Explore curated collections, exclusive drops and everyday essentials, all thoughtfully designed in one stylish shipping destination.
               </p>
-              
+
               <button
                 onClick={onExploreClick}
                 className="mt-5 border-b border-neutral-900 text-xs font-mono font-bold text-neutral-900 pb-1 hover:text-orange-500 hover:border-orange-500 transition-colors cursor-pointer inline-flex items-center gap-1 group"
@@ -73,7 +152,7 @@ export default function Hero({ onAddCurated, onExploreClick }: HeroProps) {
           </div>
 
           {/* Center Model Portrait with layering effects */}
-          <div className="md:col-span-4 relative flex justify-center items-center order-1 md:order-2">
+          <div className="md:col-span-4 relative flex flex-col justify-center items-center order-1 md:order-2">
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 30 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -95,73 +174,37 @@ export default function Hero({ onAddCurated, onExploreClick }: HeroProps) {
               </AnimatePresence>
               {/* Subtle Ambient Shadow Overlay inside image */}
               <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/20 via-transparent to-transparent opacity-85 pointer-events-none" />
-
-              {/* Styled Orange Ribbon / Accent Tag on jacket context */}
-              <div className="absolute top-1/2 right-4 flex flex-col items-center gap-1 pointer-events-none">
-                <span className="w-[3px] h-12 bg-orange-500 rounded-full animate-bounce" />
-                <span className="font-mono text-[9px] text-white font-bold bg-orange-500 px-1 py-0.5 rounded tracking-tighter shadow-md">
-                  CORE TAG V.26
-                </span>
-              </div>
             </motion.div>
 
-            {/* Styling Assist / Floating Widget Overlay (Stags icons & + Button) */}
-            <motion.div
-              initial={{ scale: 0, opacity: 0, x: 40 }}
-              animate={{ scale: 1, opacity: 1, x: 0 }}
-              transition={{ delay: 0.6, type: "spring", mass: 0.5, damping: 15 }}
-              className="absolute -right-4 sm:-right-8 top-[60%] z-30 bg-white/95 backdrop-blur-sm self-center shadow-lg rounded-[18px] p-3 border border-neutral-100 flex items-center gap-3"
-            >
-              <div className="flex items-center -space-x-2">
-                <img
-                  src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=120"
-                  alt="Stylist 1"
-                  className="w-7 h-7 rounded-full border-2 border-white object-cover"
-                />
-                <img
-                  src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=120"
-                  alt="Stylist 2"
-                  className="w-7 h-7 rounded-full border-2 border-white object-cover"
-                />
-              </div>
-              <button
-                id="btn-add-curated"
-                onClick={onAddCurated}
-                className="w-8 h-8 rounded-full bg-orange-500 hover:bg-orange-600 text-white flex items-center justify-center transition-all cursor-pointer shadow shadow-orange-500/50 hover:scale-110 active:scale-95 group"
-                title="Add Curated Outfit to Cart"
-              >
-                <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform" />
-              </button>
-            </motion.div>
-
-            {/* Accent Cross Mark behind image */}
-            <div className="absolute -left-12 -bottom-2 select-none text-orange-500 pointer-events-none font-bold text-4xl font-mono animate-spin-slow opacity-90 hidden sm:block">
-              +
-            </div>
-            
             <div className="absolute right-0 -bottom-8 select-none text-neutral-200 pointer-events-none text-[5rem] md:text-[7rem] leading-none font-sans font-black opacity-10 hidden sm:block rotate-90 origin-bottom-right">
               LOUDLAYER
             </div>
+
+            <motion.button
+              onClick={onViewStore}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.9, duration: 0.6 }}
+              className="mt-6 flex items-center gap-2.5 px-6 py-3 bg-neutral-900 text-white text-sm font-bold rounded-full hover:bg-orange-500 hover:scale-105 active:scale-95 transition-all shadow-lg shadow-neutral-900/20 cursor-pointer z-30"
+            >
+              <ShoppingBag className="w-4 h-4" />
+              View Store
+            </motion.button>
           </div>
 
           {/* RTR: "lives - now" */}
           <div className="md:col-span-4 z-10 select-none order-3 flex flex-col justify-center text-right">
-            <motion.div
-              initial={{ opacity: 0, x: 60 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8, ease: "easeOut" }}
-              className="space-y-0 md:-space-y-4"
-            >
-              <p className="font-mono text-xs uppercase tracking-widest text-neutral-400 mb-2 md:-mb-1">
-                // STYLED FOR LIFE
-              </p>
+            <p className="font-mono text-xs uppercase tracking-widest text-neutral-400 mb-2 md:-mb-1">
+              // STYLED FOR LIFE
+            </p>
+            <div ref={rightRef} className="space-y-0 md:-space-y-4">
               <h1 className="text-6xl sm:text-7xl lg:text-[7.5rem] font-sans font-black tracking-tighter text-neutral-900 leading-none">
-                lives
+                {splitToChars("lives")}
               </h1>
               <h1 className="text-6xl sm:text-7xl lg:text-[7.5rem] font-sans font-black tracking-tighter text-neutral-900 leading-none">
-                - now
+                {splitToChars("- now")}
               </h1>
-            </motion.div>
+            </div>
 
             {/* Stylized Count Card */}
             <motion.div

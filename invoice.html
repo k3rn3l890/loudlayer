@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invoice — LoudLayer Project</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #f3f4f6;
+      color: #1a1a1a;
+      padding: 40px 20px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .invoice {
+      max-width: 900px;
+      margin: 0 auto;
+      background: #ffffff;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+      overflow: hidden;
+    }
+
+    .invoice-header {
+      background: #0a0a0a;
+      color: #ffffff;
+      padding: 48px 56px 40px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .invoice-header .brand h1 {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin-bottom: 4px;
+    }
+
+    .invoice-header .brand p {
+      font-size: 13px;
+      color: #9ca3af;
+      font-weight: 500;
+    }
+
+    .invoice-header .title {
+      text-align: right;
+    }
+
+    .invoice-header .title h2 {
+      font-size: 32px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+    }
+
+    .invoice-header .title p {
+      font-size: 13px;
+      color: #9ca3af;
+      margin-top: 4px;
+    }
+
+    .invoice-body {
+      padding: 40px 56px 48px;
+    }
+
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 40px;
+      gap: 40px;
+    }
+
+    .info-block h3 {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #6b7280;
+      margin-bottom: 8px;
+    }
+
+    .info-block p {
+      font-size: 14px;
+      line-height: 1.7;
+      color: #374151;
+    }
+
+    .info-block .name {
+      font-weight: 700;
+      font-size: 16px;
+      color: #111827;
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      margin-bottom: 40px;
+      padding: 24px;
+      background: #f9fafb;
+      border-radius: 10px;
+    }
+
+    .meta-item h3 {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #6b7280;
+      margin-bottom: 4px;
+    }
+
+    .meta-item p {
+      font-size: 14px;
+      font-weight: 600;
+      color: #111827;
+    }
+
+    .section {
+      margin-bottom: 32px;
+    }
+
+    .section:last-child {
+      margin-bottom: 0;
+    }
+
+    .section-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #111827;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #111827;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .section-title .section-total {
+      font-size: 14px;
+      font-weight: 700;
+      color: #111827;
+    }
+
+    .line-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 8px 0 8px 16px;
+      border-left: 3px solid #e5e7eb;
+      margin-bottom: 2px;
+    }
+
+    .line-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .line-item .desc {
+      font-size: 13px;
+      color: #374151;
+      flex: 1;
+      padding-right: 24px;
+      line-height: 1.5;
+    }
+
+    .line-item .amount {
+      font-size: 13px;
+      font-weight: 600;
+      color: #111827;
+      white-space: nowrap;
+      min-width: 90px;
+      text-align: right;
+    }
+
+    .line-item.sub-item .desc {
+      padding-left: 16px;
+      font-size: 12px;
+      color: #6b7280;
+    }
+
+    .divider {
+      height: 1px;
+      background: #e5e7eb;
+      margin: 24px 0;
+    }
+
+    .totals {
+      margin-top: 32px;
+      padding-top: 24px;
+      border-top: 2px solid #111827;
+    }
+
+    .total-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0;
+    }
+
+    .total-row .label {
+      font-size: 14px;
+      color: #6b7280;
+    }
+
+    .total-row .value {
+      font-size: 14px;
+      font-weight: 600;
+      color: #111827;
+    }
+
+    .total-row.grand {
+      padding-top: 12px;
+      margin-top: 8px;
+      border-top: 2px solid #111827;
+    }
+
+    .total-row.grand .label {
+      font-size: 18px;
+      font-weight: 800;
+      color: #111827;
+    }
+
+    .total-row.grand .value {
+      font-size: 22px;
+      font-weight: 800;
+      color: #111827;
+    }
+
+    .payment-info {
+      margin-top: 32px;
+      padding: 20px 24px;
+      background: #f9fafb;
+      border-radius: 10px;
+      font-size: 13px;
+      color: #6b7280;
+      line-height: 1.7;
+    }
+
+    .payment-info h3 {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #6b7280;
+      margin-bottom: 8px;
+    }
+
+    .payment-info strong {
+      color: #374151;
+    }
+
+    .invoice-footer {
+      padding: 24px 56px;
+      border-top: 1px solid #e5e7eb;
+      text-align: center;
+      font-size: 12px;
+      color: #9ca3af;
+      line-height: 1.6;
+    }
+
+    @media print {
+      body {
+        background: #ffffff;
+        padding: 0;
+      }
+      .invoice {
+        box-shadow: none;
+        border-radius: 0;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .invoice-header {
+        flex-direction: column;
+        gap: 16px;
+        padding: 32px 24px;
+      }
+      .invoice-header .title {
+        text-align: left;
+      }
+      .invoice-body {
+        padding: 24px;
+      }
+      .info-row {
+        flex-direction: column;
+        gap: 24px;
+      }
+      .meta-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="invoice">
+
+  <!-- HEADER -->
+  <div class="invoice-header">
+    <div class="brand">
+      <h1>PIXLS</h1>
+      <p>Digital Solutions &amp; Development</p>
+    </div>
+    <div class="title">
+      <h2>INVOICE</h2>
+      <p>INV-2026-001</p>
+    </div>
+  </div>
+
+  <!-- BODY -->
+  <div class="invoice-body">
+
+    <!-- FROM / TO -->
+    <div class="info-row">
+      <div class="info-block">
+        <h3>From</h3>
+        <p class="name">PIXLS</p>
+        <p>[Street Address, City, Country]</p>
+        <p>[Phone Number]</p>
+        <p>[Email Address]</p>
+      </div>
+      <div class="info-block">
+        <h3>Bill To</h3>
+        <p class="name">LoudLayer</p>
+        <p>Urban Fashion Collection</p>
+        <p>[Customer Address]</p>
+      </div>
+    </div>
+
+    <!-- META -->
+    <div class="meta-grid">
+      <div class="meta-item">
+        <h3>Invoice Number</h3>
+        <p>INV-2026-001</p>
+      </div>
+      <div class="meta-item">
+        <h3>Invoice Date</h3>
+        <p>[Date of Issue]</p>
+      </div>
+      <div class="meta-item">
+        <h3>Payment Terms</h3>
+        <p>Due within 14 days</p>
+      </div>
+    </div>
+
+    <!-- ====== 1. FRONT-END IMPLEMENTATIONS ====== -->
+    <div class="section">
+      <div class="section-title">
+        <span>1. Front-End Implementations</span>
+        <span class="section-total">GHS 2,200.00</span>
+      </div>
+
+      <div class="line-item">
+        <span class="desc">Public pages &amp; routing (Home, Store, Product Detail, Login, Sign Up, Account)</span>
+        <span class="amount">GHS 600.00</span>
+      </div>
+      <div class="line-item">
+        <span class="desc">Admin panel (Dashboard, Products, Orders, AuthGuard, Layout shell)</span>
+        <span class="amount">GHS 500.00</span>
+      </div>
+      <div class="line-item">
+        <span class="desc">Reusable components (Header, Hero, PartnerRail, Moments, Stats, Testimonials, Carousel, Directory, CartDrawer, WhatsApp, Footer)</span>
+        <span class="amount">GHS 500.00</span>
+      </div>
+      <div class="line-item">
+        <span class="desc">State management &amp; API client layer (AuthContext, CartContext, userApi, admin/api)</span>
+        <span class="amount">GHS 300.00</span>
+      </div>
+      <div class="line-item">
+        <span class="desc">UI/UX, animations &amp; responsive design (Motion/Framer, Tailwind theming, toast system, scrollbars, glassmorphism)</span>
+        <span class="amount">GHS 300.00</span>
+      </div>
+    </div>
+
+    <!-- ====== 2. BACK-END IMPLEMENTATIONS ====== -->
+    <div class="section">
+      <div class="section-title">
+        <span>2. Back-End Implementations</span>
+        <span class="section-total">GHS 1,500.00</span>
+      </div>
+
+      <div class="line-item">
+        <span class="desc">Express server setup, middleware stack &amp; configuration</span>
+        <span class="amount">GHS 200.00</span>
+      </div>
+      <div class="line-item">
+        <span class="desc">Database schema, migrations &amp; seed data (8 tables, SQLite, WAL mode)</span>
+        <span class="amount">GHS 300.00</span>
+      </div>
+      <div class="line-item">
+        <span class="desc">Product management API (CRUD, filtering, search, visibility control)</span>
+        <span class="amount">GHS 200.00</span>
+      </div>
+      <div class="line-item">
+        <span class="desc">Order management API (CRUD, status workflow, stock management, cancellation)</span>
+        <span class="amount">GHS 250.00</span>
+      </div>
+      <div class="line-item">
+        <span class="desc">Authentication API (register, login, Google OAuth, logout, session)</span>
+        <span class="amount">GHS 200.00</span>
+      </div>
+      <div class="line-item">
+        <span class="desc">Cart &amp; Wishlist sync APIs (guest-to-user migration, stock-aware)</span>
+        <span class="amount">GHS 100.00</span>
+      </div>
+      <div class="line-item">
+        <span class="desc">Reviews API (star rating, text, duplicate prevention, aggregate stats)</span>
+        <span class="amount">GHS 100.00</span>
+      </div>
+      <div class="line-item">
+        <span class="desc">Dashboard stats API (revenue, counts, recent orders)</span>
+        <span class="amount">GHS 100.00</span>
+      </div>
+      <div class="line-item">
+        <span class="desc">Email notification system (SendGrid, 3 branded templates)</span>
+        <span class="amount">GHS 100.00</span>
+      </div>
+      <div class="line-item">
+        <span class="desc">Image upload API (Multer, file type &amp; size validation)</span>
+        <span class="amount">GHS 100.00</span>
+      </div>
+    </div>
+
+    <!-- ====== 3. SECURITY IMPLEMENTATIONS ====== -->
+    <div class="section">
+      <div class="section-title">
+        <span>3. Security Implementations</span>
+        <span class="section-total">GHS 800.00</span>
+      </div>
+
+      <div class="line-item">
+        <span class="desc">JWT authentication middleware (admin-tier &amp; user-tier access control)</span>
+        <span class="amount">GHS 200.00</span>
+      </div>
+      <div class="line-item">
+        <span class="desc">Brute-force login protection (IP + email lockout: 5 attempts / 15 min)</span>
+        <span class="amount">GHS 150.00</span>
+      </div>
+      <div class="line-item">
+        <span class="desc">HTTP security headers (Helmet CSP for scripts, styles, images, fonts, frames)</span>
+        <span class="amount">GHS 150.00</span>
+      </div>
+      <div class="line-item">
+        <span class="desc">Rate limiting (3 tiers: auth 10/15min, api 100/15min, upload 20/15min)</span>
+        <span class="amount">GHS 100.00</span>
+      </div>
+      <div class="line-item">
+        <span class="desc">Input validation (Zod schemas across all endpoints)</span>
+        <span class="amount">GHS 100.00</span>
+      </div>
+      <div class="line-item">
+        <span class="desc">CORS, SQL injection prevention, file upload validation, bcrypt password hashing</span>
+        <span class="amount">GHS 100.00</span>
+      </div>
+    </div>
+
+    <!-- ====== 4. TESTING IMPLEMENTATIONS ====== -->
+    <div class="section">
+      <div class="section-title">
+        <span>4. Testing Implementations</span>
+        <span class="section-total">GHS 500.00</span>
+      </div>
+
+      <div class="line-item">
+        <span class="desc">k6 browsing load test (read-only endpoints, ramp-up to 1,000 concurrent users, p95 &lt; 2s threshold)</span>
+        <span class="amount">GHS 250.00</span>
+      </div>
+      <div class="line-item">
+        <span class="desc">k6 full user journey test (register, login, browse, view — 1,000 concurrent users, error rate thresholds)</span>
+        <span class="amount">GHS 250.00</span>
+      </div>
+    </div>
+
+    <!-- ====== TOTALS ====== -->
+    <div class="totals">
+
+      <div class="total-row">
+        <span class="label">Front-End Implementations</span>
+        <span class="value">GHS 2,200.00</span>
+      </div>
+      <div class="total-row">
+        <span class="label">Back-End Implementations</span>
+        <span class="value">GHS 1,500.00</span>
+      </div>
+      <div class="total-row">
+        <span class="label">Security Implementations</span>
+        <span class="value">GHS 800.00</span>
+      </div>
+      <div class="total-row">
+        <span class="label">Testing Implementations</span>
+        <span class="value">GHS 500.00</span>
+      </div>
+
+      <div class="total-row grand">
+        <span class="label">Total Due</span>
+        <span class="value">GHS 5,000.00</span>
+      </div>
+
+    </div>
+
+    <!-- ====== PAYMENT INFO ====== -->
+    <div class="payment-info">
+      <h3>Payment Details</h3>
+      <p>
+        <strong>Bank:</strong> [Bank Name]<br>
+        <strong>Account Name:</strong> PIXLS<br>
+        <strong>Account Number:</strong> [Account Number]<br>
+        <strong>Payment Reference:</strong> INV-2026-001
+      </p>
+      <p style="margin-top:8px;font-style:italic;">
+        Please quote the invoice number as payment reference.
+      </p>
+    </div>
+
+  </div>
+
+  <!-- FOOTER -->
+  <div class="invoice-footer">
+    <p><strong>PIXLS</strong> &mdash; Digital Solutions &amp; Development</p>
+    <p>[Street Address, City, Country] &bull; [Phone Number] &bull; [Email Address]</p>
+    <p style="margin-top:4px;">Thank you for your business.</p>
+  </div>
+
+</div>
+
+</body>
+</html>

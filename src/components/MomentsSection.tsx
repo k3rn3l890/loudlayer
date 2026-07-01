@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { ArrowRight, ShoppingCart, Info, Sparkles, X } from "lucide-react";
+import { Link } from "react-router-dom";
+import { ShoppingCart, Info, Heart, X, ExternalLink } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { MOMENTS_PRODUCTS } from "../data";
 import { Product } from "../types";
@@ -15,8 +16,6 @@ export default function MomentsSection({
 }: MomentsSectionProps) {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedSize, setSelectedSize] = useState<string>("M");
-  const [showLearnMore, setShowLearnMore] = useState(false);
-
   const sizes = ["S", "M", "L", "XL"];
 
   const handleOpenQuickView = (product: Product) => {
@@ -47,17 +46,7 @@ export default function MomentsSection({
             </h2>
           </div>
 
-          <div className="mt-8 md:mt-0 pl-11 md:pl-0">
-            <button
-              onClick={() => setShowLearnMore(true)}
-              className="px-6 py-3 rounded-full border border-neutral-800 text-neutral-900 text-xs font-mono tracking-widest uppercase hover:bg-neutral-900 hover:text-white transition-all cursor-pointer inline-flex items-center gap-3 group"
-            >
-              LEARN MORE 
-              <span className="w-5 h-5 rounded-full bg-neutral-900 text-white flex items-center justify-center group-hover:bg-orange-500 transition-colors">
-                <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
-              </span>
-            </button>
-          </div>
+
         </div>
 
         {/* Multi-layered Grid Display */}
@@ -77,7 +66,7 @@ export default function MomentsSection({
                 />
                 
                 {/* Image Actions Trigger */}
-                <div className="absolute inset-x-0 bottom-4 px-4 flex justify-between items-center z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                <div className="absolute inset-x-0 bottom-4 px-4 flex justify-between items-center z-10 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300">
                   <button
                     onClick={() => handleOpenQuickView(MOMENTS_PRODUCTS[0])}
                     className="bg-white/90 hover:bg-white text-neutral-900 text-[10px] font-mono tracking-wider uppercase px-4 h-9 rounded-full shadow border border-neutral-100 flex items-center gap-1.5 cursor-pointer"
@@ -89,7 +78,7 @@ export default function MomentsSection({
                     className="w-9 h-9 rounded-full bg-white/90 hover:bg-orange-500 hover:text-white text-neutral-900 flex items-center justify-center shadow transition-colors cursor-pointer"
                     title="Add to Wishlist"
                   >
-                    <Sparkles className="w-4 h-4" />
+                    <Heart className="w-4 h-4" />
                   </button>
                 </div>
               </div>
@@ -104,26 +93,29 @@ export default function MomentsSection({
                 </h4>
                 <div className="my-3 h-[1px] w-12 bg-neutral-300" />
                 <h3 className="text-2xl font-sans font-black text-neutral-900 leading-none">
-                  ${MOMENTS_PRODUCTS[0].price}
+                  ₵{MOMENTS_PRODUCTS[0].price}
                 </h3>
                 <p className="font-mono text-[10px] text-neutral-400 mt-1 uppercase tracking-wider">
-                  (RRP $120 VALUE)
+                  (RRP ₵120 VALUE)
                 </p>
-                <button
-                  onClick={() => onAddToCart(MOMENTS_PRODUCTS[0], "M")}
+                <Link
+                  to={`/products/${MOMENTS_PRODUCTS[0].slug}`}
                   className="mt-4 self-start bg-neutral-950 hover:bg-orange-500 text-white text-[10px] font-mono tracking-widest uppercase px-4 py-2 rounded-full flex items-center gap-2 transition"
                 >
                   <ShoppingCart className="w-3 h-3" /> ADD TO BAG
-                </button>
+                </Link>
               </div>
 
             </div>
 
             {/* Custom Bottom Name */}
             <div className="mt-4 flex items-center justify-between">
-              <span className="text-neutral-500 font-mono text-xs hover:text-neutral-900 transition-colors">
+              <Link
+                to={`/products/${MOMENTS_PRODUCTS[0].slug}`}
+                className="text-neutral-500 font-mono text-xs hover:text-orange-500 transition-colors"
+              >
                 {MOMENTS_PRODUCTS[0].name}
-              </span>
+              </Link>
             </div>
           </div>
 
@@ -141,7 +133,7 @@ export default function MomentsSection({
                 />
                 
                 {/* Image Actions Trigger */}
-                <div className="absolute inset-x-0 bottom-4 px-4 flex justify-between items-center z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                <div className="absolute inset-x-0 bottom-4 px-4 flex justify-between items-center z-10 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300">
                   <button
                     onClick={() => handleOpenQuickView(MOMENTS_PRODUCTS[1])}
                     className="bg-white/90 hover:bg-white text-neutral-900 text-[10px] font-mono tracking-wider uppercase px-4 h-9 rounded-full shadow border border-neutral-100 flex items-center gap-1.5 cursor-pointer"
@@ -153,7 +145,7 @@ export default function MomentsSection({
                     className="w-9 h-9 rounded-full bg-white/90 hover:bg-orange-500 hover:text-white text-neutral-900 flex items-center justify-center shadow transition-colors cursor-pointer"
                     title="Add to Wishlist"
                   >
-                    <Sparkles className="w-4 h-4" />
+                    <Heart className="w-4 h-4" />
                   </button>
                 </div>
               </div>
@@ -174,7 +166,7 @@ export default function MomentsSection({
                 </p>
                 <div className="my-2 h-[1px] w-12 bg-neutral-300 self-start sm:self-end" />
                 <h3 className="text-2xl font-sans font-black text-neutral-950">
-                  ${MOMENTS_PRODUCTS[1].price}
+                  ₵{MOMENTS_PRODUCTS[1].price}
                 </h3>
               </div>
 
@@ -182,9 +174,12 @@ export default function MomentsSection({
 
             {/* Custom Bottom Name */}
             <div className="mt-4 flex items-center justify-between sm:justify-end">
-              <span className="text-neutral-500 font-mono text-xs hover:text-neutral-900 transition-colors">
+              <Link
+                to={`/products/${MOMENTS_PRODUCTS[1].slug}`}
+                className="text-neutral-500 font-mono text-xs hover:text-orange-500 transition-colors"
+              >
                 {MOMENTS_PRODUCTS[1].name}
-              </span>
+              </Link>
             </div>
           </div>
 
@@ -268,19 +263,29 @@ export default function MomentsSection({
                       PRICE VALUE
                     </span>
                     <span className="text-2xl font-sans font-black text-neutral-950 leading-none block mt-1">
-                      ${selectedProduct.price}
+                      ₵{selectedProduct.price}
                     </span>
                   </div>
                   
-                  <button
-                    onClick={() => {
-                      onAddToCart(selectedProduct, selectedSize);
-                      setSelectedProduct(null);
-                    }}
-                    className="flex-1 max-w-[160px] h-11 bg-orange-500 hover:bg-orange-600 text-white font-mono text-xs font-bold uppercase tracking-widest rounded-full flex items-center justify-center gap-2 transition cursor-pointer"
-                  >
-                    <ShoppingCart className="w-4 h-4" /> ADD TO BAG
-                  </button>
+                  <div className="flex gap-2">
+                    <Link
+                      to={`/products/${selectedProduct.slug}`}
+                      onClick={() => setSelectedProduct(null)}
+                      className="h-11 w-11 rounded-full border border-neutral-200 hover:border-neutral-500 text-neutral-600 flex items-center justify-center transition cursor-pointer"
+                      title="View Full Details"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </Link>
+                    <button
+                      onClick={() => {
+                        onAddToCart(selectedProduct, selectedSize);
+                        setSelectedProduct(null);
+                      }}
+                      className="h-11 px-5 bg-orange-500 hover:bg-orange-600 text-white font-mono text-xs font-bold uppercase tracking-widest rounded-full flex items-center justify-center gap-2 transition cursor-pointer"
+                    >
+                      <ShoppingCart className="w-4 h-4" /> ADD TO BAG
+                    </button>
+                  </div>
                 </div>
               </div>
             </motion.div>
@@ -288,56 +293,6 @@ export default function MomentsSection({
         )}
       </AnimatePresence>
 
-      {/* LEARN MORE EXPLANATORY BLOCK MODAL */}
-      <AnimatePresence>
-        {showLearnMore && (
-          <div className="fixed inset-0 bg-neutral-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-zinc-50 rounded-[32px] p-8 max-w-md w-full relative border border-neutral-200 shadow-2xl"
-            >
-              <button
-                onClick={() => setShowLearnMore(false)}
-                className="absolute top-4 right-4 p-2 rounded-full hover:bg-neutral-200 transition"
-              >
-                <X className="w-4 h-4 text-neutral-800" />
-              </button>
-              
-              <div className="flex items-center gap-2 mb-4">
-                <Sparkles className="w-5 h-5 text-orange-500" />
-                <span className="font-mono text-[10px] uppercase font-heavy tracking-widest text-neutral-400">
-                  The ©26 Craft Manifesto
-                </span>
-              </div>
-              
-              <h3 className="text-2xl font-sans font-black text-neutral-900 tracking-tight leading-tight mb-4">
-                Redefining Urban Silhouettes with Total Integrity
-              </h3>
-              
-              <div className="space-y-4 text-xs text-neutral-600 font-light leading-relaxed">
-                <p>
-                  Our Autumn/Winter 2026 collections are manufactured exclusively using certified premium recycled yarns, organic combed cotton, and weather-proof outer technical membranes.
-                </p>
-                <p>
-                  Every individual piece goes through strict stress, stitch, and temperature-retention calibrations to represent real durable luxury built for demanding city environments.
-                </p>
-                <p>
-                  By optimizing production batch densities and reducing transportation waste, LOUDLAYER ensures each drop carries high artistic aesthetic value with a smaller global footprint.
-                </p>
-              </div>
-
-              <button
-                onClick={() => setShowLearnMore(false)}
-                className="w-full mt-6 h-11 bg-neutral-950 hover:bg-orange-500 text-white font-mono text-xs font-bold uppercase tracking-widest rounded-full transition cursor-pointer"
-              >
-                CHOOSE STYLES NOW
-              </button>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
     </section>
   );
 }

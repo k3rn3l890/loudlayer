@@ -91,7 +91,7 @@ export default function Footer() {
                 LOCATION
               </span>
               <p className="text-sm font-sans text-neutral-300 font-light leading-relaxed">
-                5557 Washington Ave, America, 32289
+                123 Oxford Street, Osu - Accra, Ghana
               </p>
             </div>
 
@@ -129,65 +129,12 @@ export default function Footer() {
 
         </div>
 
-        {/* Categories Directory Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-8 py-12 border-b border-white/5 text-left">
-          
-          {/* Directory column MENU */}
-          <div>
-            <h4 className="font-mono text-[10px] uppercase tracking-wider text-orange-500 font-bold mb-4">
-              MENU
-            </h4>
-            <ul className="space-y-2">
-              {["About", "Industries", "Product", "Categories"].map((link) => (
-                <li key={link}>
-                  <a href="#" className="font-sans text-xs text-neutral-400 hover:text-white hover:underline transition-colors">
-                    {link}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Directory column SHOP */}
-          <div>
-            <h4 className="font-mono text-[10px] uppercase tracking-wider text-orange-500 font-bold mb-4">
-              SHOP
-            </h4>
-            <ul className="space-y-2">
-              {["shirts", "jackets", "trousers", "sweatsuits"].map((link) => (
-                <li key={link}>
-                  <a href="#" className="font-sans text-xs text-neutral-400 hover:text-white hover:underline transition-colors">
-                    {link}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Directory column CART */}
-          <div className="col-span-2 md:col-span-1">
-            <h4 className="font-mono text-[10px] uppercase tracking-wider text-orange-500 font-bold mb-4">
-              CART
-            </h4>
-            <ul className="space-y-2">
-              {["Blog", "Contact", "Terms", "Tutorials"].map((link) => (
-                <li key={link}>
-                  <a href="#" className="font-sans text-xs text-neutral-400 hover:text-white hover:underline transition-colors">
-                    {link}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-        </div>
-
         {/* Lower footer information row */}
         <div className="pt-8 flex flex-col sm:flex-row items-center justify-between text-neutral-500 text-[11px] gap-4">
           
           <div className="flex gap-6">
-            <a href="#" className="hover:text-white transition-colors">Terms & Conditions</a>
-            <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>
+            <span className="hover:text-white transition-colors cursor-default">Terms & Conditions</span>
+            <span className="hover:text-white transition-colors cursor-default">Privacy Policy</span>
           </div>
 
           <p className="text-center sm:text-right font-mono">

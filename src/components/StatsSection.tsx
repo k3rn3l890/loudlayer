@@ -252,7 +252,7 @@ export default function StatsSection({ onCategorySelect }: StatsSectionProps) {
                       PRICE VALUE
                     </span>
                     <span className="text-3xl font-sans font-bold text-neutral-950 block">
-                      ${product.price}
+                      ₵{product.price}
                     </span>
                   </div>
                   

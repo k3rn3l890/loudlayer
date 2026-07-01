@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { Menu, Search, Heart, ShoppingBag, X } from "lucide-react";
+import { Search, Heart, ShoppingBag, X, User } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 
 interface HeaderProps {
@@ -8,6 +9,7 @@ interface HeaderProps {
   wishlistCount: number;
   onWishlistClick: () => void;
   onSearch: (query: string) => void;
+  user?: { id: number; email: string; name: string } | null;
 }
 
 export default function Header({
@@ -16,7 +18,9 @@ export default function Header({
   wishlistCount,
   onWishlistClick,
   onSearch,
+  user,
 }: HeaderProps) {
+  const location = useLocation();
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -27,27 +31,28 @@ export default function Header({
   };
 
   return (
-    <header className="relative w-full z-40 bg-zinc-50/80 backdrop-blur-md px-3 md:px-6 py-5 grid grid-cols-3 items-center border-b border-neutral-200/50">
-      {/* Left Menu Icon */}
-      <div className="flex items-center justify-start">
-        <button
-          id="btn-menu-trigger"
-          className="p-2 -ml-2 rounded-full hover:bg-neutral-200/50 transition-colors cursor-pointer group"
-          aria-label="Toggle Side Menu"
-        >
-          <Menu className="w-5 h-5 text-neutral-800 group-hover:scale-105 transition-transform" />
-        </button>
-      </div>
+    <header className="relative w-full z-40 bg-zinc-50/80 backdrop-blur-md px-3 md:px-6 py-5 flex items-center justify-between border-b border-neutral-200/50">
+      {/* Spacer for left side to keep logo centered */}
+      <div className="w-10" />
 
       {/* Center Logo */}
       <div className="text-center select-none truncate">
-        <a href="#" className="font-sans text-sm sm:text-lg md:text-2xl font-light tracking-[0.15em] sm:tracking-[0.25em] md:tracking-[0.35em] text-neutral-900 transition-opacity hover:opacity-80">
+        <a href="/" className="font-sans text-sm sm:text-lg md:text-2xl font-light tracking-[0.15em] sm:tracking-[0.25em] md:tracking-[0.35em] text-neutral-900 transition-opacity hover:opacity-80">
           LOUDLAYER
         </a>
       </div>
 
       {/* Right Actions */}
-      <div className="flex items-center justify-end gap-0 md:gap-2">
+      <div className="flex items-center gap-0 md:gap-2">
+        {/* Account / Login */}
+        <Link
+          to={user ? "/account" : `/login?redirect=${location.pathname === "/" || location.pathname === "/store" ? location.pathname : "/"}`}
+          className="p-2 rounded-full hover:bg-neutral-200/50 transition-colors group"
+          aria-label={user ? "My Account" : "Sign In"}
+        >
+          <User className="w-5 h-5 text-neutral-800 group-hover:scale-105 transition-transform" />
+        </Link>
+
         {/* Search Toggle */}
         <button
           id="btn-search"
@@ -66,9 +71,18 @@ export default function Header({
           aria-label="View Wishlist"
         >
           <Heart className={`w-5 h-5 text-neutral-800 group-hover:scale-105 transition-transform ${wishlistCount > 0 ? "fill-orange-500 text-orange-500" : ""}`} />
-          {wishlistCount > 0 && (
-            <span className="absolute top-1 right-1 w-2 h-2 bg-orange-500 rounded-full ring-2 ring-zinc-50" />
-          )}
+          <AnimatePresence>
+            {wishlistCount > 0 && (
+              <motion.span
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0 }}
+                className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-neutral-900 text-[10px] font-mono font-bold text-white flex items-center justify-center px-1 rounded-full border border-zinc-50"
+              >
+                {wishlistCount}
+              </motion.span>
+            )}
+          </AnimatePresence>
         </button>
 
         {/* Cart Button */}
