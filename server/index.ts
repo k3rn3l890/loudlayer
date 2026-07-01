@@ -42,7 +42,14 @@ app.use(helmet({
 }));
 
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || "http://localhost:3000",
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    const allowed = (process.env.CORS_ORIGIN || "").split(",").map(s => s.trim()).filter(Boolean);
+    if (allowed.includes(origin) || origin.endsWith(".vercel.app") || origin.startsWith("http://localhost")) {
+      return callback(null, true);
+    }
+    callback(null, false);
+  },
   credentials: true,
 }));
 
