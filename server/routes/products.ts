@@ -5,6 +5,15 @@ import { CreateProductSchema, UpdateProductSchema } from "../validation";
 
 const router = Router();
 
+function fullImageUrl(req: Request, path: string): string {
+  if (!path || path.startsWith("http")) return path;
+  return `${req.protocol}://${req.get("host")}${path}`;
+}
+
+function mapProduct(req: Request, p: any) {
+  return { ...p, image: fullImageUrl(req, p.image || "") };
+}
+
 router.get("/", (req: Request, res: Response) => {
   const db = getDb();
   const { category, search, visible } = req.query;
@@ -27,7 +36,7 @@ router.get("/", (req: Request, res: Response) => {
   }
   sql += " ORDER BY created_at DESC";
 
-  const products = db.prepare(sql).all(...params);
+  const products = db.prepare(sql).all(...params).map((p) => mapProduct(req, p));
   res.json({ products });
 });
 
@@ -35,14 +44,14 @@ router.get("/slug/:slug", (req: Request, res: Response) => {
   const db = getDb();
   const product = db.prepare("SELECT * FROM products WHERE slug = ? AND visible = 1").get(req.params.slug);
   if (!product) { res.status(404).json({ error: "Product not found" }); return; }
-  res.json({ product });
+  res.json({ product: mapProduct(req, product) });
 });
 
 router.get("/:id", (req: Request, res: Response) => {
   const db = getDb();
   const product = db.prepare("SELECT * FROM products WHERE id = ?").get(req.params.id);
   if (!product) { res.status(404).json({ error: "Product not found" }); return; }
-  res.json({ product });
+  res.json({ product: mapProduct(req, product) });
 });
 
 router.post("/", authMiddleware, (req: Request, res: Response) => {
@@ -70,7 +79,7 @@ router.post("/", authMiddleware, (req: Request, res: Response) => {
   );
 
   const product = db.prepare("SELECT * FROM products WHERE id = ?").get(result.lastInsertRowid);
-  res.status(201).json({ product });
+  res.status(201).json({ product: mapProduct(req, product) });
 });
 
 router.put("/:id", authMiddleware, (req: Request, res: Response) => {
@@ -108,7 +117,7 @@ router.put("/:id", authMiddleware, (req: Request, res: Response) => {
   );
 
   const product = db.prepare("SELECT * FROM products WHERE id = ?").get(req.params.id);
-  res.json({ product });
+  res.json({ product: mapProduct(req, product) });
 });
 
 router.delete("/:id", authMiddleware, (req: Request, res: Response) => {
