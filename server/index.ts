@@ -26,6 +26,7 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
@@ -84,7 +85,12 @@ app.use("/api/auth", authLimiter);
 app.use("/api", apiLimiter);
 app.use("/api/upload", uploadLimiter);
 
-app.use("/uploads", express.static(path.join(import.meta.dirname, "..", "uploads")));
+app.use("/uploads", express.static(path.join(import.meta.dirname, "..", "uploads"), {
+  setHeaders: (res) => {
+    res.set("Cross-Origin-Resource-Policy", "cross-origin");
+    res.set("Access-Control-Allow-Origin", "*");
+  },
+}));
 
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
