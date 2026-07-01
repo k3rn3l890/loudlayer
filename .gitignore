@@ -11,3 +11,4 @@ coverage/
 *.db-wal
 server.err
 .playwright-mcp/
+admin_login.md
