@@ -13,6 +13,7 @@ import uploadRoutes from "./routes/upload";
 import cartRoutes from "./routes/cart";
 import wishlistRoutes from "./routes/wishlist";
 import reviewRoutes from "./routes/reviews";
+import { initSchema, migrateSchema, seedDefaults } from "./db";
 
 process.on("uncaughtException", (err) => {
   console.error("UNCAUGHT EXCEPTION:", err);
@@ -24,6 +25,18 @@ process.on("unhandledRejection", (reason) => {
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+async function initializeDatabase() {
+  try {
+    await initSchema();
+    await migrateSchema();
+    await seedDefaults();
+    console.log("Database initialized successfully");
+  } catch (err) {
+    console.error("Database initialization failed:", err);
+    process.exit(1);
+  }
+}
 
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
@@ -110,6 +123,8 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   res.status(500).json({ error: "Internal server error" });
 });
 
-app.listen(PORT, () => {
-  console.log(`LoudLayer API server running on http://localhost:${PORT}`);
+initializeDatabase().then(() => {
+  app.listen(PORT, () => {
+    console.log(`LoudLayer API server running on http://localhost:${PORT}`);
+  });
 });

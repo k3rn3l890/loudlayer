@@ -1,33 +1,46 @@
 import { Router, Request, Response } from "express";
-import { getDb } from "../db";
+import { query } from "../db-pg";
 import { userAuthMiddleware } from "../middleware/auth";
 
 const router = Router();
 
 router.use(userAuthMiddleware);
 
-router.get("/", (req: Request, res: Response) => {
-  const db = getDb();
-  const items = db.prepare("SELECT * FROM wishlist_items WHERE user_id = ? ORDER BY created_at").all(req.user!.userId) as any[];
-  res.json({ items: items.map((i) => ({ ...i, product_data: JSON.parse(i.product_data) })) });
+router.get("/", async (req: Request, res: Response) => {
+  try {
+    const result = await query(
+      "SELECT * FROM wishlist_items WHERE user_id = $1 ORDER BY created_at",
+      [req.user!.userId]
+    );
+    res.json({ items: result.rows.map((i) => ({ ...i, product_data: i.product_data })) });
+  } catch (err: any) {
+    console.error("Wishlist GET error:", err);
+    res.status(500).json({ error: "Failed to fetch wishlist" });
+  }
 });
 
-router.put("/", (req: Request, res: Response) => {
-  const db = getDb();
-  const { items } = req.body;
-  const del = db.prepare("DELETE FROM wishlist_items WHERE user_id = ?");
-  const ins = db.prepare("INSERT OR REPLACE INTO wishlist_items (user_id, product_id, product_data) VALUES (?, ?, ?)");
-  const tx = db.transaction(() => {
-    del.run(req.user!.userId);
-    if (items) {
+router.put("/", async (req: Request, res: Response) => {
+  try {
+    const { items } = req.body;
+    const userId = req.user!.userId;
+
+    await query("DELETE FROM wishlist_items WHERE user_id = $1", [userId]);
+
+    if (items && items.length > 0) {
       for (const item of items) {
-        ins.run(req.user!.userId, item.id, JSON.stringify(item));
+        await query(
+          "INSERT INTO wishlist_items (user_id, product_id, product_data) VALUES ($1, $2, $3) ON CONFLICT (user_id, product_id) DO UPDATE SET product_data = EXCLUDED.product_data",
+          [userId, item.id, JSON.stringify(item)]
+        );
       }
     }
-  });
-  tx();
-  const saved = db.prepare("SELECT * FROM wishlist_items WHERE user_id = ? ORDER BY created_at").all(req.user!.userId) as any[];
-  res.json({ items: saved.map((i) => ({ ...i, product_data: JSON.parse(i.product_data) })) });
+
+    const saved = await query("SELECT * FROM wishlist_items WHERE user_id = $1 ORDER BY created_at", [userId]);
+    res.json({ items: saved.rows.map((i) => ({ ...i, product_data: i.product_data })) });
+  } catch (err: any) {
+    console.error("Wishlist PUT error:", err);
+    res.status(500).json({ error: "Failed to update wishlist" });
+  }
 });
 
 export default router;

@@ -1,39 +1,51 @@
 import { Router, Request, Response } from "express";
-import { getDb } from "../db";
+import { query } from "../db-pg";
 import { userAuthMiddleware } from "../middleware/auth";
 
 const router = Router();
 
 router.use(userAuthMiddleware);
 
-router.get("/", (req: Request, res: Response) => {
-  const db = getDb();
-  const items = db.prepare("SELECT * FROM cart_items WHERE user_id = ? ORDER BY created_at").all(req.user!.userId) as any[];
-  res.json({ items: items.map((i) => ({ ...i, product_data: JSON.parse(i.product_data) })) });
+router.get("/", async (req: Request, res: Response) => {
+  try {
+    const result = await query(
+      "SELECT * FROM cart_items WHERE user_id = $1 ORDER BY created_at",
+      [req.user!.userId]
+    );
+    res.json({ items: result.rows.map((i) => ({ ...i, product_data: i.product_data })) });
+  } catch (err: any) {
+    console.error("Cart GET error:", err);
+    res.status(500).json({ error: "Failed to fetch cart" });
+  }
 });
 
-router.put("/", (req: Request, res: Response) => {
-  const db = getDb();
-  const { items } = req.body;
-  const getStock = db.prepare("SELECT stock FROM products WHERE id = ?");
-  const del = db.prepare("DELETE FROM cart_items WHERE user_id = ?");
-  const ins = db.prepare("INSERT OR REPLACE INTO cart_items (user_id, product_id, product_data, quantity, size) VALUES (?, ?, ?, ?, ?)");
-  const tx = db.transaction(() => {
-    del.run(req.user!.userId);
-    if (items) {
+router.put("/", async (req: Request, res: Response) => {
+  try {
+    const { items } = req.body;
+    const userId = req.user!.userId;
+
+    await query("DELETE FROM cart_items WHERE user_id = $1", [userId]);
+
+    if (items && items.length > 0) {
       for (const item of items) {
-        const product = getStock.get(item.product.id) as any;
-        const available = product ? (product.stock ?? 0) : 0;
+        const stockResult = await query("SELECT stock FROM products WHERE id = $1", [item.product.id]);
+        const available = stockResult.rows[0]?.stock ?? 0;
         if (available > 0) {
           const qty = Math.min(item.quantity, available);
-          ins.run(req.user!.userId, item.product.id, JSON.stringify(item.product), qty, item.selectedSize || "");
+          await query(
+            "INSERT INTO cart_items (user_id, product_id, product_data, quantity, size) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (user_id, product_id, size) DO UPDATE SET quantity = EXCLUDED.quantity, product_data = EXCLUDED.product_data",
+            [userId, item.product.id, JSON.stringify(item.product), qty, item.selectedSize || ""]
+          );
         }
       }
     }
-  });
-  tx();
-  const saved = db.prepare("SELECT * FROM cart_items WHERE user_id = ? ORDER BY created_at").all(req.user!.userId) as any[];
-  res.json({ items: saved.map((i) => ({ ...i, product_data: JSON.parse(i.product_data) })) });
+
+    const saved = await query("SELECT * FROM cart_items WHERE user_id = $1 ORDER BY created_at", [userId]);
+    res.json({ items: saved.rows.map((i) => ({ ...i, product_data: i.product_data })) });
+  } catch (err: any) {
+    console.error("Cart PUT error:", err);
+    res.status(500).json({ error: "Failed to update cart" });
+  }
 });
 
 export default router;
