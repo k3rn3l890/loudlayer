@@ -9,6 +9,7 @@ import { apiGet, apiPost } from "../lib/userApi";
 import { Product, CartItem } from "../types";
 import { Link, useNavigate } from "react-router-dom";
 import { Heart, Sparkles, X, Check, ShoppingBag, ShoppingCart, Search, Eye } from "lucide-react";
+import AddToCartModal from "../components/AddToCartModal";
 
 function mapDbProduct(p: any): Product {
   let tags: string[] = [];
@@ -51,6 +52,7 @@ export default function StorePage() {
 
   const categories = ["all", ...Array.from(new Set(products.map((p) => p.category).filter(Boolean)))];
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [modalProduct, setModalProduct] = useState<Product | null>(null);
   const [showWishlistModal, setShowWishlistModal] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastType, setToastType] = useState<"success" | "info">("success");
@@ -222,12 +224,12 @@ export default function StorePage() {
                       </div>
                       {product.stock !== undefined && product.stock > 0 ? (
                         <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300 flex gap-2">
-                          <Link
-                            to={`/products/${product.slug}`}
+                          <button
+                            onClick={() => setModalProduct(product)}
                             className="flex-1 h-9 bg-white text-neutral-900 text-[10px] font-mono font-bold uppercase tracking-wider rounded-full flex items-center justify-center gap-1.5 hover:bg-orange-500 hover:text-white transition cursor-pointer"
                           >
                             <ShoppingCart className="w-3.5 h-3.5" /> Add to Bag
-                          </Link>
+                          </button>
                           <Link
                             to={`/products/${product.slug}`}
                             className="w-9 h-9 bg-white/90 rounded-full flex items-center justify-center hover:bg-orange-500 hover:text-white transition cursor-pointer"
@@ -424,6 +426,11 @@ export default function StorePage() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        <AddToCartModal
+          product={modalProduct}
+          onClose={() => setModalProduct(null)}
+        />
       </div>
     </div>
   );
