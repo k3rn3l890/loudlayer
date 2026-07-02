@@ -220,20 +220,6 @@ export default function AddToCartModal({ product, onClose }: AddToCartModalProps
                         </>
                       )}
                     </span>
-
-                    {/* Price Pill - Button-in-Button */}
-                    {!added && !isOutOfStock && (
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 w-auto h-8 bg-white/15 backdrop-blur-sm rounded-full px-4 flex items-center justify-center text-white font-mono text-[11px] font-bold">
-                        ₵{(displayPrice * quantity).toFixed(2)}
-                      </span>
-                    )}
-
-                    {/* Magnetic trailing icon */}
-                    {!added && !isOutOfStock && (
-                      <span className="absolute right-1 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 flex items-center justify-center group-hover:translate-x-1 group-hover:-translate-y-[1px] group-hover:scale-105 transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]" aria-hidden="true">
-                        <ShoppingBag className="w-4.5 h-4.5" />
-                      </span>
-                    )}
                   </motion.button>
                 <div className="pt-3 text-center">
                     <button
