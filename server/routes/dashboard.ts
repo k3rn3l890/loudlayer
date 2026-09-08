@@ -1,19 +1,17 @@
 import { Router, Request, Response } from "express";
-import { query } from "../db-pg";
+import { query } from "../db";
 import { authMiddleware } from "../middleware/auth";
 
 const router = Router();
 
 router.get("/stats", authMiddleware, async (req: Request, res: Response) => {
   try {
-    const [totalProducts, totalOrders, totalRevenue, totalCustomers, ordersByStatus, recentOrders] = await Promise.all([
-      query("SELECT COUNT(*) as c FROM products"),
-      query("SELECT COUNT(*) as c FROM orders"),
-      query("SELECT COALESCE(SUM(total), 0) as t FROM orders WHERE status != 'cancelled'"),
-      query("SELECT COUNT(*) as c FROM users WHERE role = 'customer'"),
-      query("SELECT status, COUNT(*) as count FROM orders GROUP BY status"),
-      query("SELECT * FROM orders ORDER BY created_at DESC LIMIT 5"),
-    ]);
+    const totalProducts = query("SELECT COUNT(*) as c FROM products");
+    const totalOrders = query("SELECT COUNT(*) as c FROM orders");
+    const totalRevenue = query("SELECT COALESCE(SUM(total), 0) as t FROM orders WHERE status != 'cancelled'");
+    const totalCustomers = query("SELECT COUNT(*) as c FROM users WHERE role = 'customer'");
+    const ordersByStatus = query("SELECT status, COUNT(*) as count FROM orders GROUP BY status");
+    const recentOrders = query("SELECT * FROM orders ORDER BY created_at DESC LIMIT 5");
 
     res.json({
       stats: {

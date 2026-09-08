@@ -1,21 +1,52 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, ArrowRight, ShieldCheck, ShoppingCart, Eye } from "lucide-react";
 import { motion } from "motion/react";
-import { DISCOVER_PRODUCTS } from "../data";
 import { Product } from "../types";
+import { apiGet } from "../lib/userApi";
 
 interface JacketMomentoCarouselProps {
   onAddToCart: (p: Product, size: string) => void;
   onAddToWishlist: (p: Product) => void;
 }
 
+function mapDbProduct(p: any): Product {
+  let tags: string[] = [];
+  if (Array.isArray(p.tags)) tags = p.tags;
+  else if (typeof p.tags === "string") try { tags = JSON.parse(p.tags); } catch {}
+  return {
+    id: String(p.id),
+    slug: p.slug || "",
+    name: p.name,
+    price: p.price,
+    discountPrice: p.discount_price ?? undefined,
+    discountPercentage: p.discount_percentage ?? undefined,
+    image: p.image || "/placeholder-product.svg",
+    category: p.category || "",
+    code: p.code ?? undefined,
+    tags,
+    description: p.description ?? undefined,
+    stock: p.stock ?? 0,
+  };
+}
+
 export default function JacketMomentoCarousel({
   onAddToCart,
   onAddToWishlist,
 }: JacketMomentoCarouselProps) {
-  const [selectedJacketId, setSelectedJacketId] = useState<string>("c3"); // default highlight charcoal Oversized Tshirt as seen in standard flow
+  const [selectedJacketId, setSelectedJacketId] = useState<string>("");
+  const [discoverProducts, setDiscoverProducts] = useState<Product[]>([]);
   const sliderRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    apiGet<{ products: any[] }>("/products?visible=1")
+      .then((data) => {
+        const products = data.products.map(mapDbProduct);
+        setDiscoverProducts(products);
+        if (products.length > 0) setSelectedJacketId(products[0].id);
+      })
+      .catch(() => {});
+  }, []);
 
   const scrollLeftList = () => {
     if (sliderRef.current) {
@@ -28,6 +59,8 @@ export default function JacketMomentoCarousel({
       sliderRef.current.scrollBy({ left: 320, behavior: "smooth" });
     }
   };
+
+  if (discoverProducts.length === 0) return null;
 
   return (
     <section className="w-full bg-zinc-100 py-16 px-6 md:px-12 border-b border-neutral-200/50">
@@ -78,7 +111,7 @@ export default function JacketMomentoCarousel({
           className="flex overflow-x-auto gap-6 sm:gap-8 pb-8 scrollbar-thin scrollbar-thumb-zinc-400 scroll-smooth snap-x"
           style={{ scrollbarWidth: "thin" }}
         >
-          {DISCOVER_PRODUCTS.map((jacket) => {
+          {discoverProducts.map((jacket) => {
             const isHighlighted = selectedJacketId === jacket.id;
             return (
               <div
@@ -173,7 +206,7 @@ export default function JacketMomentoCarousel({
         
         {/* Dots Page Track indicators matching layout */}
         <div className="flex items-center justify-center gap-2 mt-4 select-none">
-          {DISCOVER_PRODUCTS.map((jacket, idx) => (
+          {discoverProducts.map((jacket, idx) => (
             <button
               key={jacket.id}
               onClick={() => setSelectedJacketId(jacket.id)}

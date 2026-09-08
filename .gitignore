@@ -6,9 +6,13 @@ coverage/
 *.log
 .env*
 !.env.example
+data/
 *.db
 *.db-shm
 *.db-wal
 server.err
 .playwright-mcp/
 admin_login.md
+test-results/
+uploads/
+server/uploads/

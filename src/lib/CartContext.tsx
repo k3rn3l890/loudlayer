@@ -1,8 +1,8 @@
 import { createContext, useContext, useState, useEffect, useRef, type ReactNode } from "react";
 import { Product, CartItem } from "../types";
 import { useAuth } from "./AuthContext";
-import { apiGet, apiPut } from "./userApi";
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 const GUEST_CART_KEY = "loudlayer_guest_cart";
 const GUEST_WISHLIST_KEY = "loudlayer_guest_wishlist";
 
@@ -36,22 +36,13 @@ function saveToStorage<T>(key: string, data: T) {
   } catch {}
 }
 
-function mapCartForApi(items: CartItem[]) {
-  return items.map((i) => ({
-    product: { ...i.product },
-    quantity: i.quantity,
-    selectedSize: i.selectedSize || "",
-  }));
-}
-
 export function CartProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const userId = user?.id ?? null;
-  const prevUserId = useRef<number | null>(userId);
+  const prevUserId = useRef<string | null>(userId);
   const loadingServer = useRef(false);
   const ready = useRef(false);
   const mounted = useRef(false);
-  const localMutationCount = useRef(0);
 
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [wishlist, setWishlist] = useState<Product[]>([]);
@@ -61,51 +52,71 @@ export function CartProvider({ children }: { children: ReactNode }) {
     mounted.current = true;
     const load = async () => {
       if (userId !== null) {
-        // Logged in: migrate guest items, then fetch from server
         loadingServer.current = true;
         ready.current = false;
 
+        // Migrate guest items to server
         const gCart = loadFromStorage<CartItem[]>(GUEST_CART_KEY, []);
         const gWish = loadFromStorage<Product[]>(GUEST_WISHLIST_KEY, []);
         if (gCart.length > 0 || gWish.length > 0) {
-          await Promise.all([
-            apiPut("/cart", { items: mapCartForApi(gCart) }),
-            apiPut("/wishlist", { items: gWish.map((p) => ({ ...p })) }),
-          ]);
+          try {
+            // Sync cart items
+            if (gCart.length > 0) {
+              await fetch(`${API_URL}/api/cart`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify({
+                  items: gCart.map((item) => ({
+                    product: { id: parseInt(item.product.id.replace(/\D/g, "")) || 0, price: item.product.price },
+                    quantity: item.quantity,
+                    selectedSize: item.selectedSize || "",
+                  })),
+                }),
+              });
+            }
+            // Sync wishlist items
+            if (gWish.length > 0) {
+              await fetch(`${API_URL}/api/wishlist`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify({ items: gWish.map((item) => ({ id: parseInt(item.id.replace(/\D/g, "")) || 0, ...item })) }),
+              });
+            }
+          } catch {}
           localStorage.removeItem(GUEST_CART_KEY);
           localStorage.removeItem(GUEST_WISHLIST_KEY);
         }
 
-        const mutationSnapshot = localMutationCount.current;
-
         try {
-          const [cRes, wRes] = await Promise.all([
-            apiGet<{ items: any[] }>("/cart"),
-            apiGet<{ items: any[] }>("/wishlist"),
+          const [cartRes, wishRes] = await Promise.all([
+            fetch(`${API_URL}/api/cart`, { credentials: "include" }),
+            fetch(`${API_URL}/api/wishlist`, { credentials: "include" }),
           ]);
-          // Only apply server data if no local mutations happened during fetch
-          // (prevents overwriting items the user added while loading)
-          if (localMutationCount.current === mutationSnapshot) {
+
+          if (cartRes.ok) {
+            const cartData = await cartRes.json();
             setCartItems(
-              cRes.items.map((i: any) => ({
-                product: i.product_data as Product,
+              cartData.items.map((i: any) => ({
+                product: typeof i.product_data === "string" ? JSON.parse(i.product_data) : i.product_data,
                 quantity: i.quantity,
                 selectedSize: i.size || undefined,
               }))
             );
-            setWishlist(wRes.items.map((i: any) => i.product_data as Product));
+          }
+          if (wishRes.ok) {
+            const wishData = await wishRes.json();
+            setWishlist(wishData.items.map((i: any) => typeof i.product_data === "string" ? JSON.parse(i.product_data) : i.product_data));
           }
         } catch {
-          if (localMutationCount.current === mutationSnapshot) {
-            setCartItems([]);
-            setWishlist([]);
-          }
+          setCartItems([]);
+          setWishlist([]);
         } finally {
           loadingServer.current = false;
           ready.current = true;
         }
       } else {
-        // Guest: load from localStorage (no server persistence)
         setCartItems(loadFromStorage<CartItem[]>(GUEST_CART_KEY, []));
         setWishlist(loadFromStorage<Product[]>(GUEST_WISHLIST_KEY, []));
         ready.current = true;
@@ -133,14 +144,42 @@ export function CartProvider({ children }: { children: ReactNode }) {
   // Sync to server when logged in and state changes
   useEffect(() => {
     if (userId === null || loadingServer.current || !ready.current || !mounted.current) return;
-    apiPut("/cart", { items: mapCartForApi(cartItems) }).catch(() => {});
-    apiPut("/wishlist", { items: wishlist.map((p) => ({ ...p })) }).catch(() => {});
+
+    const syncCart = async () => {
+      try {
+        await fetch(`${API_URL}/api/cart`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            items: cartItems.map((item) => ({
+              product: { id: parseInt(item.product.id.replace(/\D/g, "")) || 0, price: item.product.price },
+              quantity: item.quantity,
+              selectedSize: item.selectedSize || "",
+            })),
+          }),
+        });
+      } catch {}
+    };
+
+    const syncWishlist = async () => {
+      try {
+        await fetch(`${API_URL}/api/wishlist`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ items: wishlist.map((item) => ({ id: parseInt(item.id.replace(/\D/g, "")) || 0, ...item })) }),
+        });
+      } catch {}
+    };
+
+    syncCart();
+    syncWishlist();
   }, [cartItems, wishlist, userId]);
 
   const cartCount = cartItems.reduce((acc, it) => acc + it.quantity, 0);
 
   const addToCart = (product: Product, size: string) => {
-    localMutationCount.current++;
     setCartItems((prev) => {
       const existing = prev.find(
         (item) => item.product.id === product.id && item.selectedSize === size
@@ -159,7 +198,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
   };
 
   const updateQuantity = (productId: string, qty: number, selectedSize?: string) => {
-    localMutationCount.current++;
     setCartItems((prev) =>
       prev.map((item) => {
         if (item.product.id !== productId) return item;
@@ -171,7 +209,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
   };
 
   const removeFromCart = (productId: string, selectedSize?: string) => {
-    localMutationCount.current++;
     setCartItems((prev) =>
       selectedSize !== undefined
         ? prev.filter((item) => !(item.product.id === productId && item.selectedSize === selectedSize))
@@ -180,7 +217,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
   };
 
   const clearCart = () => {
-    localMutationCount.current++;
     setCartItems([]);
   };
 

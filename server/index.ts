@@ -26,11 +26,11 @@ process.on("unhandledRejection", (reason) => {
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-async function initializeDatabase() {
+function initializeDatabase() {
   try {
-    await initSchema();
-    await migrateSchema();
-    await seedDefaults();
+    initSchema();
+    migrateSchema();
+    seedDefaults();
     console.log("Database initialized successfully");
   } catch (err) {
     console.error("Database initialization failed:", err);
@@ -72,31 +72,15 @@ app.use(cookieParser());
 
 const RATE_WINDOW = Number(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000;
 
-const authLimiter = rateLimit({
-  windowMs: RATE_WINDOW,
-  max: process.env.AUTH_RATE_MAX ? Number(process.env.AUTH_RATE_MAX) : 10,
-  message: { error: "Too many attempts. Try again later." },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
 const apiLimiter = rateLimit({
   windowMs: RATE_WINDOW,
-  max: process.env.API_RATE_MAX ? Number(process.env.API_RATE_MAX) : 100,
+  max: process.env.API_RATE_MAX ? Number(process.env.API_RATE_MAX) : 500,
+  message: { error: "Too many requests. Try again later." },
   standardHeaders: true,
   legacyHeaders: false,
 });
 
-const uploadLimiter = rateLimit({
-  windowMs: RATE_WINDOW,
-  max: process.env.UPLOAD_RATE_MAX ? Number(process.env.UPLOAD_RATE_MAX) : 20,
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-app.use("/api/auth", authLimiter);
 app.use("/api", apiLimiter);
-app.use("/api/upload", uploadLimiter);
 
 app.use("/uploads", express.static(path.join(import.meta.dirname, "..", "uploads"), {
   setHeaders: (res) => {
@@ -123,8 +107,7 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   res.status(500).json({ error: "Internal server error" });
 });
 
-initializeDatabase().then(() => {
-  app.listen(PORT, () => {
-    console.log(`LoudLayer API server running on http://localhost:${PORT}`);
-  });
+initializeDatabase();
+app.listen(PORT, () => {
+  console.log(`LoudLayer API server running on http://localhost:${PORT}`);
 });

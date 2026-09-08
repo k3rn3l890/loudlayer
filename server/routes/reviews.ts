@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { query } from "../db-pg";
+import { query } from "../db";
 import { authMiddleware } from "../middleware/auth";
 import { CreateReviewSchema } from "../validation";
 
@@ -7,25 +7,25 @@ const router = Router();
 
 router.get("/:slug/reviews", async (req: Request, res: Response) => {
   try {
-    const productResult = await query("SELECT id FROM products WHERE slug = $1", [req.params.slug]);
+    const productResult = query("SELECT id FROM products WHERE slug = ?", [req.params.slug]);
     if (productResult.rows.length === 0) {
       res.status(404).json({ error: "Product not found" });
       return;
     }
     const productId = productResult.rows[0].id;
 
-    const reviewsResult = await query(
+    const reviewsResult = query(
       `SELECT r.id, r.rating, r.body, r.created_at, u.name as user_name
        FROM reviews r
        JOIN users u ON u.id = r.user_id
-       WHERE r.product_id = $1
+       WHERE r.product_id = ?
        ORDER BY r.created_at DESC`,
       [productId]
     );
 
-    const statsResult = await query(
-      `SELECT COUNT(*) as count, COALESCE(ROUND(AVG(rating)::numeric, 1), 0) as average
-       FROM reviews WHERE product_id = $1`,
+    const statsResult = query(
+      `SELECT COUNT(*) as count, COALESCE(ROUND(AVG(rating), 1), 0) as average
+       FROM reviews WHERE product_id = ?`,
       [productId]
     );
 
@@ -43,9 +43,9 @@ router.post("/:slug/reviews", authMiddleware, async (req: Request, res: Response
       res.status(400).json({ error: parsed.error.issues[0].message });
       return;
     }
-    const user = (req as any).user;
+    const user = (req as any).admin;
 
-    const productResult = await query("SELECT id FROM products WHERE slug = $1", [req.params.slug]);
+    const productResult = query("SELECT id FROM products WHERE slug = ?", [req.params.slug]);
     if (productResult.rows.length === 0) {
       res.status(404).json({ error: "Product not found" });
       return;
@@ -54,28 +54,28 @@ router.post("/:slug/reviews", authMiddleware, async (req: Request, res: Response
 
     const { rating, body } = parsed.data;
 
-    const existingResult = await query(
-      "SELECT id FROM reviews WHERE product_id = $1 AND user_id = $2",
-      [productId, user.id]
+    const existingResult = query(
+      "SELECT id FROM reviews WHERE product_id = ? AND user_id = ?",
+      [productId, user.userId]
     );
     if (existingResult.rows.length > 0) {
       res.status(400).json({ error: "You have already reviewed this product" });
       return;
     }
 
-    const result = await query(
+    query(
       `INSERT INTO reviews (product_id, user_id, rating, body)
-       VALUES ($1, $2, $3, $4)
-       RETURNING *`,
-      [productId, user.id, rating, body || ""]
+       VALUES (?, ?, ?, ?)`,
+      [productId, user.userId, rating, body || ""]
     );
 
-    const reviewResult = await query(
+    const reviewResult = query(
       `SELECT r.id, r.rating, r.body, r.created_at, u.name as user_name
        FROM reviews r
        JOIN users u ON u.id = r.user_id
-       WHERE r.id = $1`,
-      [result.rows[0].id]
+       WHERE r.product_id = ? AND r.user_id = ?
+       ORDER BY r.created_at DESC LIMIT 1`,
+      [productId, user.userId]
     );
 
     res.status(201).json({ review: reviewResult.rows[0] });

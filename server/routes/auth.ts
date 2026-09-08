@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import { OAuth2Client } from "google-auth-library";
-import { query } from "../db-pg";
+import { query } from "../db";
 import { generateToken, setTokenCookie, clearTokenCookie, userAuthMiddleware } from "../middleware/auth";
 import { RegisterSchema, LoginSchema, GoogleAuthSchema } from "../validation";
 
@@ -48,17 +48,18 @@ router.post("/register", async (req: Request, res: Response) => {
     }
     const { email, password, name } = parsed.data;
 
-    const existingResult = await query("SELECT id FROM users WHERE email = $1", [email]);
+    const existingResult = query("SELECT id FROM users WHERE email = ?", [email]);
     if (existingResult.rows.length > 0) {
       res.status(409).json({ error: "Email already registered" });
       return;
     }
     const hash = bcrypt.hashSync(password, 10);
-    const result = await query(
-      "INSERT INTO users (email, password, name, role) VALUES ($1, $2, $3, 'customer') RETURNING *",
+    query(
+      "INSERT INTO users (email, password, name, role) VALUES (?, ?, ?, 'customer')",
       [email, hash, name || ""]
     );
-    const user = result.rows[0];
+    const userResult = query("SELECT * FROM users WHERE email = ?", [email]);
+    const user = userResult.rows[0];
     const token = generateToken({ userId: user.id, email: user.email, role: "customer" });
     setTokenCookie(res, token);
     res.json({ token, user: { id: user.id, email: user.email, name: user.name || "", role: "customer" } });
@@ -83,7 +84,7 @@ router.post("/login", async (req: Request, res: Response) => {
       return;
     }
 
-    const userResult = await query("SELECT * FROM users WHERE email = $1", [email]);
+    const userResult = query("SELECT * FROM users WHERE email = ?", [email]);
     if (userResult.rows.length === 0) {
       res.status(401).json({ error: "Invalid email or password" });
       return;
@@ -129,7 +130,7 @@ router.post("/google", async (req: Request, res: Response) => {
         return;
       }
 
-      let userResult = await query("SELECT * FROM users WHERE email = $1", [payload.email]);
+      let userResult = query("SELECT * FROM users WHERE email = ?", [payload.email]);
       let user = userResult.rows[0];
 
       if (user) {
@@ -138,14 +139,15 @@ router.post("/google", async (req: Request, res: Response) => {
           return;
         }
         if (user.provider !== "google") {
-          await query("UPDATE users SET provider = 'google' WHERE id = $1", [user.id]);
+          query("UPDATE users SET provider = 'google' WHERE id = ?", [user.id]);
         }
       } else {
-        const result = await query(
-          "INSERT INTO users (email, password, name, role, provider) VALUES ($1, '', $2, 'customer', 'google') RETURNING *",
+        query(
+          "INSERT INTO users (email, password, name, role, provider) VALUES (?, '', ?, 'customer', 'google')",
           [payload.email, payload.name || ""]
         );
-        user = result.rows[0];
+        userResult = query("SELECT * FROM users WHERE email = ?", [payload.email]);
+        user = userResult.rows[0];
       }
       const token = generateToken({ userId: user.id, email: user.email, role: user.role });
       setTokenCookie(res, token);
@@ -167,7 +169,7 @@ router.post("/logout", (_req: Request, res: Response) => {
 
 router.get("/me", userAuthMiddleware, async (req: Request, res: Response) => {
   try {
-    const userResult = await query("SELECT id, email, name, role FROM users WHERE id = $1", [req.user!.userId]);
+    const userResult = query("SELECT id, email, name, role FROM users WHERE id = ?", [req.user!.userId]);
     if (userResult.rows.length === 0) {
       res.status(401).json({ error: "User not found" });
       return;

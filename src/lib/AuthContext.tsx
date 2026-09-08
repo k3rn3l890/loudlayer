@@ -1,8 +1,9 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
-import { apiPost, apiGet } from "./userApi";
+
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
 interface User {
-  id: number;
+  id: string;
   email: string;
   name: string;
   role: string;
@@ -13,7 +14,7 @@ interface AuthContextType {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, name: string) => Promise<void>;
-  loginWithGoogle: (credential: string) => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
 }
@@ -25,38 +26,64 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    apiGet<{ user: User }>("/auth/me")
-      .then((data) => setUser(data.user))
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    refreshUser().finally(() => setLoading(false));
   }, []);
 
   const login = async (email: string, password: string) => {
-    const data = await apiPost<{ token: string; user: User }>("/auth/login", { email, password });
+    const res = await fetch(`${API_URL}/api/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ email, password }),
+    });
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.error || "Login failed");
+    }
+    const data = await res.json();
     setUser(data.user);
   };
 
   const register = async (email: string, password: string, name: string) => {
-    const data = await apiPost<{ token: string; user: User }>("/auth/register", { email, password, name });
+    const res = await fetch(`${API_URL}/api/auth/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ email, password, name }),
+    });
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.error || "Registration failed");
+    }
+    const data = await res.json();
     setUser(data.user);
   };
 
-  const loginWithGoogle = async (credential: string) => {
-    const data = await apiPost<{ token: string; user: User }>("/auth/google", { credential });
-    setUser(data.user);
+  const loginWithGoogle = async () => {
+    throw new Error("Google sign-in not configured with Express backend");
   };
 
-  const logout = async () => {
-    try { await apiPost("/auth/logout", {}); } catch {}
+  const logout = () => {
+    fetch(`${API_URL}/api/auth/logout`, {
+      method: "POST",
+      credentials: "include",
+    }).catch(() => {});
     setUser(null);
   };
 
   const refreshUser = async () => {
     try {
-      const data = await apiGet<{ user: User }>("/auth/me");
-      setUser(data.user);
+      const res = await fetch(`${API_URL}/api/auth/me`, {
+        credentials: "include",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setUser(data.user);
+      } else {
+        setUser(null);
+      }
     } catch {
-      logout();
+      setUser(null);
     }
   };
 

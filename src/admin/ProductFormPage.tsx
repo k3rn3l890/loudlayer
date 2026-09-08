@@ -26,6 +26,8 @@ export default function ProductFormPage() {
   const navigate = useNavigate();
   const isEdit = !!id;
   const [form, setForm] = useState<ProductForm>(emptyForm);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string>("");
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -42,13 +44,16 @@ export default function ProductFormPage() {
           price: String(p.price || ""),
           discount_price: p.discount_price ? String(p.discount_price) : "",
           discount_percentage: p.discount_percentage || "",
-          image: p.image || "",
+          image: "",
           category: p.category || "",
           description: p.description || "",
           tags: p.tags ? (Array.isArray(p.tags) ? p.tags.join(", ") : p.tags) : "",
           stock: String(p.stock ?? "0"),
           visible: !!p.visible,
         });
+        if (p.image) {
+          setImagePreview(p.image);
+        }
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
@@ -66,10 +71,9 @@ export default function ProductFormPage() {
     setUploading(true);
     setError("");
     try {
-      const fd = new FormData();
-      fd.append("image", file);
-      const data = await api.upload<{ url: string }>("/upload", fd);
-      setForm((prev) => ({ ...prev, image: data.url }));
+      setImageFile(file);
+      setImagePreview(URL.createObjectURL(file));
+      setForm((prev) => ({ ...prev, image: "" }));
     } catch (err: any) {
       setError(err.message || "Upload failed");
     } finally {
@@ -79,6 +83,8 @@ export default function ProductFormPage() {
   };
 
   const handleRemoveImage = () => {
+    setImageFile(null);
+    setImagePreview("");
     setForm((prev) => ({ ...prev, image: "" }));
   };
 
@@ -88,20 +94,42 @@ export default function ProductFormPage() {
     setError("");
 
     const slug = form.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-    const body = {
-      slug,
-      ...form,
-      price: parseFloat(form.price) || 0,
-      discount_price: form.discount_price ? parseFloat(form.discount_price) : null,
-      stock: parseInt(form.stock) || 0,
-      tags: form.tags ? form.tags.split(",").map((t) => t.trim()).filter(Boolean) : [],
-    };
+    const tags = form.tags ? form.tags.split(",").map((t) => t.trim()).filter(Boolean) : [];
 
     try {
-      if (isEdit) {
+      if (isEdit && !imageFile) {
+        const body = {
+          slug,
+          name: form.name,
+          price: parseFloat(form.price) || 0,
+          ...(form.discount_price ? { discount_price: parseFloat(form.discount_price) } : {}),
+          ...(form.discount_percentage ? { discount_percentage: form.discount_percentage } : {}),
+          category: form.category || "",
+          description: form.description || "",
+          stock: parseInt(form.stock) || 0,
+          visible: !!form.visible,
+          tags,
+        };
         await api.put(`/products/${id}`, body);
       } else {
-        await api.post("/products", body);
+        const fd = new FormData();
+        fd.append("slug", slug);
+        fd.append("name", form.name);
+        fd.append("price", String(parseFloat(form.price) || 0));
+        if (form.discount_price) fd.append("discount_price", String(parseFloat(form.discount_price)));
+        if (form.discount_percentage) fd.append("discount_percentage", form.discount_percentage);
+        fd.append("category", form.category || "");
+        fd.append("description", form.description || "");
+        fd.append("stock", String(parseInt(form.stock) || 0));
+        fd.append("visible", String(!!form.visible));
+        fd.append("tags", JSON.stringify(tags));
+        if (imageFile) fd.append("image", imageFile);
+
+        if (isEdit) {
+          await api.put(`/products/${id}`, fd);
+        } else {
+          await api.post("/products", fd);
+        }
       }
       navigate("/admin/products");
     } catch (err: any) {
@@ -148,10 +176,10 @@ export default function ProductFormPage() {
           </div>
           <div className="sm:col-span-2">
             <label className="text-xs font-medium text-neutral-500 mb-1 block">Image</label>
-            {form.image ? (
+            {imagePreview ? (
               <div className="relative w-full aspect-[16/9] rounded-xl overflow-hidden border border-neutral-200 bg-zinc-50">
                 <img
-                  src={form.image}
+                  src={imagePreview}
                   alt="Product preview"
                   className="w-full h-full object-contain"
                   referrerPolicy="no-referrer"

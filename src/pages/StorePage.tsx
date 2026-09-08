@@ -13,7 +13,8 @@ import AddToCartModal from "../components/AddToCartModal";
 
 function mapDbProduct(p: any): Product {
   let tags: string[] = [];
-  try { tags = JSON.parse(p.tags || "[]"); } catch {}
+  if (Array.isArray(p.tags)) tags = p.tags;
+  else if (typeof p.tags === "string") try { tags = JSON.parse(p.tags); } catch {}
   return {
     id: String(p.id),
     slug: p.slug || "",

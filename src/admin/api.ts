@@ -1,31 +1,83 @@
-const API_BASE = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api` : "/api";
-
-async function request<T = any>(
-  method: string,
-  path: string,
-  body?: any,
-  formData?: boolean
-): Promise<T> {
-  const headers: Record<string, string> = {};
-  if (!formData) headers["Content-Type"] = "application/json";
-
-  const res = await fetch(`${API_BASE}${path}`, {
-    method,
-    headers,
-    credentials: "include",
-    body: formData ? body : body ? JSON.stringify(body) : undefined,
-  });
-
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || "Request failed");
-  return data;
-}
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
 export const api = {
-  get: <T = any>(path: string) => request<T>("GET", path),
-  post: <T = any>(path: string, body?: any) => request<T>("POST", path, body),
-  put: <T = any>(path: string, body?: any) => request<T>("PUT", path, body),
-  patch: <T = any>(path: string, body?: any) => request<T>("PATCH", path, body),
-  del: <T = any>(path: string) => request<T>("DELETE", path),
-  upload: <T = any>(path: string, formData: FormData) => request<T>("POST", path, formData, true),
+  get: async <T = any>(path: string): Promise<T> => {
+    const res = await fetch(`${API_URL}/api${path}`, {
+      credentials: "include",
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || `Request failed: ${res.status}`);
+    }
+    return res.json();
+  },
+
+  post: async <T = any>(path: string, body?: any): Promise<T> => {
+    const isFormData = body instanceof FormData;
+    const res = await fetch(`${API_URL}/api${path}`, {
+      method: "POST",
+      headers: isFormData ? undefined : { "Content-Type": "application/json" },
+      credentials: "include",
+      body: isFormData ? body : JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || `Request failed: ${res.status}`);
+    }
+    return res.json();
+  },
+
+  put: async <T = any>(path: string, body?: any): Promise<T> => {
+    const isFormData = body instanceof FormData;
+    const res = await fetch(`${API_URL}/api${path}`, {
+      method: "PUT",
+      headers: isFormData ? undefined : { "Content-Type": "application/json" },
+      credentials: "include",
+      body: isFormData ? body : JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || `Request failed: ${res.status}`);
+    }
+    return res.json();
+  },
+
+  patch: async <T = any>(path: string, body?: any): Promise<T> => {
+    const res = await fetch(`${API_URL}/api${path}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || `Request failed: ${res.status}`);
+    }
+    return res.json();
+  },
+
+  del: async <T = any>(path: string): Promise<T> => {
+    const res = await fetch(`${API_URL}/api${path}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || `Request failed: ${res.status}`);
+    }
+    return res.json();
+  },
+
+  upload: async <T = any>(path: string, formData: FormData): Promise<T> => {
+    const res = await fetch(`${API_URL}/api${path}`, {
+      method: "POST",
+      credentials: "include",
+      body: formData,
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || `Request failed: ${res.status}`);
+    }
+    return res.json();
+  },
 };
