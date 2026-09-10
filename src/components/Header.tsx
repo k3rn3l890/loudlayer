@@ -44,14 +44,16 @@ export default function Header({
 
       {/* Right Actions */}
       <div className="flex items-center gap-0 md:gap-2">
-        {/* Account / Login */}
-        <Link
-          to={user ? "/account" : `/login?redirect=${location.pathname === "/" || location.pathname === "/store" ? location.pathname : "/"}`}
-          className="p-2 rounded-full hover:bg-neutral-200/50 transition-colors group"
-          aria-label={user ? "My Account" : "Sign In"}
-        >
-          <User className="w-5 h-5 text-neutral-800 group-hover:scale-105 transition-transform" />
-        </Link>
+        {/* Account / Login — hidden on static builds (no backend) */}
+        {import.meta.env.VITE_API_URL && (
+          <Link
+            to={user ? "/account" : `/login?redirect=${location.pathname === "/" || location.pathname === "/store" ? location.pathname : "/"}`}
+            className="p-2 rounded-full hover:bg-neutral-200/50 transition-colors group"
+            aria-label={user ? "My Account" : "Sign In"}
+          >
+            <User className="w-5 h-5 text-neutral-800 group-hover:scale-105 transition-transform" />
+          </Link>
+        )}
 
         {/* Search Toggle */}
         <button
