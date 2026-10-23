@@ -49,8 +49,19 @@
 
 ## Deployment
 
-- Frontend: Vercel (static Vite build). Required env vars: `VITE_SUPABASE_URL` and
-  `VITE_SUPABASE_ANON_KEY`.
-- Supabase project: schema via `supabase/migrations/`, Edge Function secrets via
-  `supabase secrets set SENDGRID_API_KEY=... ADMIN_NOTIFY_EMAIL=...`.
-- The Render Express service and SQLite database are decommissioned.
+- **Frontend (active):** GitHub Pages via `.github/workflows/deploy.yml`, served at
+  `https://k3rn3l890.github.io/loudlayer/` with `base: '/loudlayer/'` and `HashRouter`.
+  Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as repository secrets
+  (Settings → Secrets and variables → Actions). The anon key is public; never add the
+  service role key to a frontend or CI build environment.
+- **Frontend (optional):** Vercel also works — `vite.config.ts` switches the base to `/`
+  when the `VERCEL` env var is present. Set the same two `VITE_` variables in Vercel.
+- **Supabase schema:** `supabase/migrations/20261023000100_init.sql` (already applied).
+- **Edge Function:** deploy `send-order-emails` after `npx supabase login`:
+  `npx supabase functions deploy send-order-emails`, then set its secrets:
+  `npx supabase secrets set SENDGRID_API_KEY=... ADMIN_NOTIFY_EMAIL=... SENDGRID_FROM_EMAIL=...`
+  Checkout and admin actions still work if the function is not deployed; only email
+  notifications are skipped.
+- **Decommissioned:** the Render Express service and SQLite database. `data/loudlayer.db`
+  is kept locally only for the one-time migration script and is git-ignored.
+

@@ -1,0 +1,6 @@
+# Supabase project ref (safe to commit; the URL is public).
+project_id = "trxxljjfnrkupzomjmwg"
+
+# The function forwards the caller's JWT to PostgREST and relies on RLS.
+[functions.send-order-emails]
+verify_jwt = true

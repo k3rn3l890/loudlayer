@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { test, expect } from "@playwright/test";
 
 const adminEmail = process.env.E2E_ADMIN_EMAIL || "";
@@ -6,7 +7,7 @@ const hasAdminCredentials = Boolean(adminEmail && adminPassword);
 
 test.describe("Storefront", () => {
   test("loads the homepage", async ({ page }) => {
-    await page.goto("/");
+    await page.goto("./");
     await expect(page).toHaveTitle(/LOUDLAYER/i);
     await expect(page.getByText("LOUDLAYER").first()).toBeVisible();
   });
@@ -16,14 +17,14 @@ test.describe("Storefront", () => {
       (response) => response.url().includes("/rest/v1/products") && response.status() === 200
     );
 
-    await page.goto("/store");
+    await page.goto("#/store");
     await productsResponse;
 
     await expect(page.locator('a[href*="/products/"]').first()).toBeVisible({ timeout: 15000 });
   });
 
   test("opens a product detail page", async ({ page }) => {
-    await page.goto("/store");
+    await page.goto("#/store");
 
     const firstProduct = page.locator('a[href*="/products/"]').first();
     await expect(firstProduct).toBeVisible({ timeout: 15000 });
@@ -36,13 +37,13 @@ test.describe("Storefront", () => {
 
 test.describe("Customer authentication", () => {
   test("login page renders the form", async ({ page }) => {
-    await page.goto("/login");
+    await page.goto("#/login");
     await expect(page.locator("input[type='email'], input[name='email']")).toBeVisible();
     await expect(page.locator("input[type='password']")).toBeVisible();
   });
 
   test("rejects a wrong password", async ({ page }) => {
-    await page.goto("/login");
+    await page.goto("#/login");
     await page.locator("input[type='email'], input[name='email']").fill(adminEmail || "nobody@example.com");
     await page.locator("input[type='password']").fill("definitely-wrong");
     await page.locator("button[type='submit']").click();
@@ -53,14 +54,14 @@ test.describe("Customer authentication", () => {
 
 test.describe("Admin dashboard", () => {
   test("redirects unauthenticated visitors to the admin login", async ({ page }) => {
-    await page.goto("/admin");
+    await page.goto("#/admin");
     await expect(page).toHaveURL(/\/admin\/login/, { timeout: 15000 });
   });
 
   test("signs an admin in", async ({ page }) => {
     test.skip(!hasAdminCredentials, "Set E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD to run this test.");
 
-    await page.goto("/admin/login");
+    await page.goto("#/admin/login");
     await page.locator("input[type='email'], input[name='email']").fill(adminEmail);
     await page.locator("input[type='password']").fill(adminPassword);
     await page.locator("button[type='submit']").click();
