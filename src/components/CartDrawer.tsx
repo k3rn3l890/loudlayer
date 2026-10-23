@@ -11,7 +11,7 @@ interface CartDrawerProps {
   onUpdateQuantity: (productId: string, quantity: number, selectedSize?: string) => void;
   onRemoveItem: (productId: string, selectedSize?: string) => void;
   onClearCart: () => void;
-  user?: { id: number; email: string; name: string } | null;
+  user?: { id: string; email: string; name: string } | null;
   onCheckout?: (items: CartItem[], address: string) => Promise<void>;
 }
 
@@ -132,6 +132,31 @@ export default function CartDrawer({
                     className="mt-8 w-full h-11 bg-neutral-950 hover:bg-orange-500 text-white font-mono text-xs font-bold uppercase tracking-widest rounded-full transition cursor-pointer"
                   >
                     CONTINUE EXPLORING
+                  </button>
+                </div>
+              ) : isCheckingOut && !user ? (
+                /* Guests must sign in before the RPC can create an order */
+                <div className="flex flex-col items-center justify-center text-center py-16 space-y-4">
+                  <div className="w-14 h-14 bg-zinc-100 rounded-full flex items-center justify-center">
+                    <ShoppingBag className="w-6 h-6 text-neutral-400" />
+                  </div>
+                  <h4 className="font-sans font-bold text-neutral-950">Sign in to checkout</h4>
+                  <p className="text-xs text-neutral-500 max-w-[220px]">
+                    Your bag is saved. Sign in or create an account to place your order and track it.
+                  </p>
+                  <Link
+                    to="/login?redirect=/store"
+                    onClick={onClose}
+                    className="h-10 px-5 rounded-full bg-neutral-950 text-white font-mono text-xs font-bold uppercase tracking-widest hover:bg-orange-500 transition"
+                  >
+                    SIGN IN
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => setIsCheckingOut(false)}
+                    className="text-xs font-mono text-neutral-400 hover:text-neutral-900 underline cursor-pointer"
+                  >
+                    ← Back to Bag Items
                   </button>
                 </div>
               ) : isCheckingOut ? (
