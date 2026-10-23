@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { api } from "./api";
+import { adminApi } from "./api";
+import { resolveImage } from "../lib/supabase";
 import { Plus, Edit, Trash2, Search } from "lucide-react";
 
 interface Product {
@@ -13,7 +14,7 @@ interface Product {
   category: string;
   code: string | null;
   stock: number;
-  visible: number;
+  visible: boolean;
 }
 
 export default function ProductsPage() {
@@ -23,9 +24,8 @@ export default function ProductsPage() {
 
   const fetchProducts = () => {
     setLoading(true);
-    const params = search ? `?search=${encodeURIComponent(search)}` : "";
-    api.get<{ products: Product[] }>(`/products${params}`)
-      .then((data) => setProducts(data.products))
+    adminApi.getProducts(search)
+      .then(setProducts)
       .catch(console.error)
       .finally(() => setLoading(false));
   };
@@ -35,7 +35,7 @@ export default function ProductsPage() {
   const handleDelete = async (id: number, name: string) => {
     if (!window.confirm(`Delete "${name}"? This cannot be undone.`)) return;
     try {
-      await api.del(`/products/${id}`);
+      await adminApi.deleteProduct(id);
       setProducts((prev) => prev.filter((p) => p.id !== id));
     } catch (err: any) {
       alert(err.message);
@@ -96,7 +96,7 @@ export default function ProductsPage() {
                       <div className="flex items-center gap-2 sm:gap-3">
                         <div className="w-8 h-10 sm:w-10 sm:h-12 bg-zinc-100 rounded-lg overflow-hidden shrink-0">
                           <img
-                            src={product.image || "/placeholder-product.svg"}
+                            src={resolveImage(product.image)}
                             alt={product.name}
                             className="w-full h-full object-cover"
                             referrerPolicy="no-referrer"

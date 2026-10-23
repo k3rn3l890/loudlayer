@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { api } from "./api";
+import { adminApi } from "./api";
+import { notifyOrderEmails } from "../lib/userApi";
+import { resolveImage } from "../lib/supabase";
 import { ArrowLeft } from "lucide-react";
 
 interface OrderItem {
@@ -44,7 +46,7 @@ export default function OrderDetailPage() {
   const [updating, setUpdating] = useState(false);
 
   const fetchOrder = () => {
-    api.get<{ order: Order; items: OrderItem[] }>(`/orders/${id}`)
+    adminApi.getOrder(id!)
       .then((data) => { setOrder(data.order); setItems(data.items); })
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -55,8 +57,11 @@ export default function OrderDetailPage() {
   const handleStatusChange = async (newStatus: string) => {
     setUpdating(true);
     try {
-      const data = await api.patch<{ order: Order }>(`/orders/${id}/status`, { status: newStatus });
-      setOrder(data.order);
+      const order = await adminApi.updateOrderStatus(id!, newStatus);
+      setOrder(order);
+      if (["shipped", "delivered", "cancelled"].includes(newStatus)) {
+        void notifyOrderEmails(Number(order.id), "status", newStatus);
+      }
     } catch (err: any) {
       alert(err.message);
     } finally {
@@ -124,7 +129,7 @@ export default function OrderDetailPage() {
             {items.map((item) => (
               <div key={item.id} className="px-4 sm:px-5 py-2.5 sm:py-3 flex items-center gap-2 sm:gap-3">
                 <div className="w-8 h-10 sm:w-10 sm:h-12 bg-zinc-100 rounded-lg overflow-hidden shrink-0">
-                  <img src={item.image || "/placeholder-product.svg"} alt={item.product_name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  <img src={resolveImage(item.image)} alt={item.product_name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs sm:text-sm font-medium text-neutral-900 truncate">{item.product_name}</p>

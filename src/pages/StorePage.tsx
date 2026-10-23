@@ -5,31 +5,13 @@ import Footer from "../components/Footer";
 import CartDrawer from "../components/CartDrawer";
 import { useAuth } from "../lib/AuthContext";
 import { useCart } from "../lib/CartContext";
-import { apiGet, apiPost } from "../lib/userApi";
+import { getProducts, createOrder, notifyOrderEmails } from "../lib/userApi";
+import { mapDbProduct } from "../lib/productMapper";
+import { PLACEHOLDER_IMAGE } from "../lib/supabase";
 import { Product, CartItem } from "../types";
 import { Link, useNavigate } from "react-router-dom";
 import { Heart, Sparkles, X, Check, ShoppingBag, ShoppingCart, Search, Eye } from "lucide-react";
 import AddToCartModal from "../components/AddToCartModal";
-
-function mapDbProduct(p: any): Product {
-  let tags: string[] = [];
-  if (Array.isArray(p.tags)) tags = p.tags;
-  else if (typeof p.tags === "string") try { tags = JSON.parse(p.tags); } catch {}
-  return {
-    id: String(p.id),
-    slug: p.slug || "",
-    name: p.name,
-    price: p.price,
-    discountPrice: p.discount_price ?? undefined,
-    discountPercentage: p.discount_percentage ?? undefined,
-    image: p.image || "/placeholder-product.svg",
-    category: p.category || "",
-    code: p.code ?? undefined,
-    tags,
-    description: p.description ?? undefined,
-    stock: p.stock ?? 0,
-  };
-}
 
 export default function StorePage() {
   const { user } = useAuth();
@@ -45,8 +27,8 @@ export default function StorePage() {
   const [selectedCategory, setSelectedCategory] = useState("all");
 
   useEffect(() => {
-    apiGet<{ products: any[] }>("/products?visible=1")
-      .then((data) => setProducts(data.products.map(mapDbProduct)))
+    getProducts({ visible: true })
+      .then(setProducts)
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
@@ -106,7 +88,8 @@ export default function StorePage() {
       shipping_address: address,
     };
     try {
-      const data = await apiPost<{ order: any; skipped_items?: { name: string; reason: string }[] }>("/orders", payload);
+      const data = await createOrder(payload);
+      void notifyOrderEmails(Number(data.order.id), "created");
       const skippedNames = data.skipped_items?.map((s) => s.name).join(", ");
       if (data.skipped_items && data.skipped_items.length > 0) {
         const skippedIds = items
@@ -201,7 +184,7 @@ export default function StorePage() {
                   >
                     <div className="relative aspect-[4/5] bg-neutral-100 overflow-hidden">
                       <img
-                        src={product.image || "/placeholder-product.svg"}
+                        src={product.image || PLACEHOLDER_IMAGE}
                         alt={product.name}
                         className={`w-full h-full object-cover transition-transform duration-700 ${product.stock && product.stock > 0 ? 'group-hover:scale-105' : 'opacity-60'}`}
                         referrerPolicy="no-referrer"

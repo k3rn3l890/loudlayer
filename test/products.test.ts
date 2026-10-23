@@ -1,198 +1,191 @@
-import { describe, it, expect } from "vitest";
-import request from "supertest";
-import { createTestApp } from "./helpers";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import {
+  anon,
+  createTestProduct,
+  createTestUser,
+  cleanup,
+  service,
+  unique,
+  type TestUser,
+} from "./supabase-helpers";
 
-const app = createTestApp();
+let admin: TestUser;
+let customer: TestUser;
+let visibleProduct: Awaited<ReturnType<typeof createTestProduct>>;
+let hiddenProduct: Awaited<ReturnType<typeof createTestProduct>>;
+const productIds: number[] = [];
 
-async function getAdminToken(): Promise<string> {
-  const res = await request(app)
-    .post("/api/auth/login")
-    .send({ email: "loudlayer000@gmail.com", password: "12Flowers$$$" });
-  return res.body.token;
-}
+beforeAll(async () => {
+  admin = await createTestUser({ role: "admin" });
+  customer = await createTestUser();
+  visibleProduct = await createTestProduct({ name: "Visible Test Jacket", category: "Jacket" });
+  hiddenProduct = await createTestProduct({ name: "Hidden Test Jacket", visible: false });
+  productIds.push(visibleProduct.id, hiddenProduct.id);
+});
 
-describe("Product Routes", () => {
-  describe("GET /api/products", () => {
-    it("returns all products", async () => {
-      const res = await request(app).get("/api/products");
-      expect(res.status).toBe(200);
-      expect(res.body.products).toBeDefined();
-      expect(res.body.products.length).toBeGreaterThan(0);
+afterAll(async () => {
+  await cleanup({
+    userIds: [admin.id, customer.id],
+    productIds,
+  });
+});
+
+describe("Products (Supabase + RLS)", () => {
+  describe("public reads", () => {
+    it("returns visible products to anonymous visitors", async () => {
+      const { data, error } = await anon
+        .from("products")
+        .select("id, name, visible")
+        .in("id", [visibleProduct.id, hiddenProduct.id]);
+
+      expect(error).toBeNull();
+      expect(data?.map((row) => row.id)).toEqual([visibleProduct.id]);
     });
 
-    it("filters by visible=1", async () => {
-      const res = await request(app).get("/api/products?visible=1");
-      expect(res.status).toBe(200);
-      for (const p of res.body.products) {
-        expect(p.visible).toBe(1);
-      }
+    it("filters by visible and category", async () => {
+      const { data, error } = await anon
+        .from("products")
+        .select("id, category, visible")
+        .eq("visible", true)
+        .eq("category", "Jacket")
+        .in("id", [visibleProduct.id, hiddenProduct.id]);
+
+      expect(error).toBeNull();
+      expect(data).toEqual([
+        expect.objectContaining({ id: visibleProduct.id, category: "Jacket", visible: true }),
+      ]);
     });
 
-    it("filters by category", async () => {
-      const res = await request(app).get("/api/products?category=Jacket");
-      expect(res.status).toBe(200);
-      for (const p of res.body.products) {
-        expect(p.category).toBe("Jacket");
-      }
+    it("searches by name with ilike", async () => {
+      const { data, error } = await anon
+        .from("products")
+        .select("id, name")
+        .ilike("name", "%visible test jacket%")
+        .in("id", [visibleProduct.id, hiddenProduct.id]);
+
+      expect(error).toBeNull();
+      expect(data).toEqual([expect.objectContaining({ id: visibleProduct.id })]);
     });
 
-    it("searches by name", async () => {
-      const res = await request(app).get("/api/products?search=velour");
-      expect(res.status).toBe(200);
-      expect(res.body.products.length).toBeGreaterThan(0);
+    it("fetches a single product by slug", async () => {
+      const { data, error } = await anon
+        .from("products")
+        .select("id, slug")
+        .eq("slug", visibleProduct.slug)
+        .maybeSingle();
+
+      expect(error).toBeNull();
+      expect(data?.id).toBe(visibleProduct.id);
+    });
+
+    it("returns null for a non-existent slug", async () => {
+      const { data } = await anon
+        .from("products")
+        .select("id")
+        .eq("slug", "non-existent-slug")
+        .maybeSingle();
+
+      expect(data).toBeNull();
+    });
+
+    it("hides invisible products from visitors but not from admins", async () => {
+      const { data: publicRows } = await anon
+        .from("products")
+        .select("id")
+        .eq("id", hiddenProduct.id);
+      expect(publicRows).toEqual([]);
+
+      const { data: adminRows } = await admin.client
+        .from("products")
+        .select("id, visible")
+        .eq("id", hiddenProduct.id)
+        .maybeSingle();
+      expect(adminRows?.id).toBe(hiddenProduct.id);
+      expect(adminRows?.visible).toBe(false);
     });
   });
 
-  describe("GET /api/products/:id", () => {
-    it("returns a single product", async () => {
-      const list = await request(app).get("/api/products");
-      const firstId = list.body.products[0].id;
-      const res = await request(app).get(`/api/products/${firstId}`);
-      expect(res.status).toBe(200);
-      expect(res.body.product.id).toBe(firstId);
+  describe("admin writes", () => {
+    it("lets an admin create, update and delete a product", async () => {
+      const slug = unique("admin-created");
+      const { data: created, error: createError } = await admin.client
+        .from("products")
+        .insert({ slug, name: "Admin Created", price: 42.5, category: "Test", stock: 3 })
+        .select("id, name, price, visible")
+        .single();
+
+      expect(createError).toBeNull();
+      expect(created).toMatchObject({ name: "Admin Created", price: 42.5, visible: true });
+      productIds.push(created.id);
+
+      const { data: updated, error: updateError } = await admin.client
+        .from("products")
+        .update({ name: "Admin Updated", visible: false })
+        .eq("id", created.id)
+        .select("id, name, visible")
+        .single();
+
+      expect(updateError).toBeNull();
+      expect(updated).toMatchObject({ name: "Admin Updated", visible: false });
+
+      const { error: deleteError } = await admin.client
+        .from("products")
+        .delete()
+        .eq("id", created.id);
+      expect(deleteError).toBeNull();
+
+      const { data: gone } = await service.from("products").select("id").eq("id", created.id);
+      expect(gone).toEqual([]);
     });
 
-    it("returns 404 for non-existent product", async () => {
-      const res = await request(app).get("/api/products/99999");
-      expect(res.status).toBe(404);
-    });
-  });
+    it("rejects product creation by a customer", async () => {
+      const { error } = await customer.client
+        .from("products")
+        .insert({ slug: unique("customer-created"), name: "Nope", price: 10 });
 
-  describe("GET /api/products/slug/:slug", () => {
-    it("returns product by slug", async () => {
-      const list = await request(app).get("/api/products");
-      const slug = list.body.products[0].slug;
-      const res = await request(app).get(`/api/products/slug/${slug}`);
-      expect(res.status).toBe(200);
-      expect(res.body.product.slug).toBe(slug);
+      expect(error).not.toBeNull();
+      expect(error?.code).toBe("42501");
     });
 
-    it("returns 404 for non-existent slug", async () => {
-      const res = await request(app).get("/api/products/slug/non-existent-slug");
-      expect(res.status).toBe(404);
-    });
-  });
+    it("rejects product creation by anonymous visitors", async () => {
+      const { error } = await anon
+        .from("products")
+        .insert({ slug: unique("anon-created"), name: "Nope", price: 10 });
 
-  describe("POST /api/products", () => {
-    it("creates a product as admin", async () => {
-      const token = await getAdminToken();
-      const res = await request(app)
-        .post("/api/products")
-        .set("Authorization", `Bearer ${token}`)
-        .send({
-          slug: "test-product",
-          name: "Test Product",
-          price: 99.99,
-          category: "Test",
-          stock: 10,
-        });
-      expect(res.status).toBe(201);
-      expect(res.body.product.name).toBe("Test Product");
-      expect(res.body.product.price).toBe(99.99);
+      expect(error).not.toBeNull();
     });
 
-    it("rejects creation without auth", async () => {
-      const res = await request(app)
-        .post("/api/products")
-        .send({ slug: "test2", name: "Test 2", price: 50 });
-      expect(res.status).toBe(401);
+    it("prevents a customer from updating a product", async () => {
+      const { data } = await customer.client
+        .from("products")
+        .update({ name: "Hacked" })
+        .eq("id", visibleProduct.id)
+        .select("id, name");
+
+      expect(data).toEqual([]);
+
+      const { data: stored } = await service
+        .from("products")
+        .select("name")
+        .eq("id", visibleProduct.id)
+        .single();
+      expect(stored?.name).toBe(visibleProduct.name);
     });
 
-    it("rejects creation with customer token", async () => {
-      const loginRes = await request(app)
-        .post("/api/auth/login")
-        .send({ email: "loudlayer000@gmail.com", password: "12Flowers$$$" });
-      // Now login as customer
-      const custRes = await request(app)
-        .post("/api/auth/register")
-        .send({ email: "cust-test@test.com", password: "password123" });
-      const custToken = custRes.body.token;
+    it("prevents a customer from deleting a product", async () => {
+      const { data } = await customer.client
+        .from("products")
+        .delete()
+        .eq("id", visibleProduct.id)
+        .select("id");
 
-      const res = await request(app)
-        .post("/api/products")
-        .set("Authorization", `Bearer ${custToken}`)
-        .send({ slug: "test3", name: "Test 3", price: 50 });
-      expect(res.status).toBe(403);
-    });
+      expect(data).toEqual([]);
 
-    it("rejects invalid data", async () => {
-      const token = await getAdminToken();
-      const res = await request(app)
-        .post("/api/products")
-        .set("Authorization", `Bearer ${token}`)
-        .send({ name: "No slug" });
-      expect(res.status).toBe(400);
-    });
-  });
-
-  describe("PUT /api/products/:id", () => {
-    it("updates product fields", async () => {
-      const token = await getAdminToken();
-      const list = await request(app).get("/api/products");
-      const product = list.body.products[0];
-
-      const res = await request(app)
-        .put(`/api/products/${product.id}`)
-        .set("Authorization", `Bearer ${token}`)
-        .send({ name: "Updated Name", visible: false });
-      expect(res.status).toBe(200);
-      expect(res.body.product.name).toBe("Updated Name");
-      expect(res.body.product.visible).toBe(0);
-    });
-
-    it("toggles visible to false and back", async () => {
-      const token = await getAdminToken();
-      const list = await request(app).get("/api/products");
-      const product = list.body.products[0];
-
-      // Set to false
-      await request(app)
-        .put(`/api/products/${product.id}`)
-        .set("Authorization", `Bearer ${token}`)
-        .send({ visible: false });
-
-      const afterFalse = await request(app).get(`/api/products/${product.id}`);
-      expect(afterFalse.body.product.visible).toBe(0);
-
-      // Set back to true
-      await request(app)
-        .put(`/api/products/${product.id}`)
-        .set("Authorization", `Bearer ${token}`)
-        .send({ visible: true });
-
-      const afterTrue = await request(app).get(`/api/products/${product.id}`);
-      expect(afterTrue.body.product.visible).toBe(1);
-    });
-
-    it("rejects update without auth", async () => {
-      const list = await request(app).get("/api/products");
-      const product = list.body.products[0];
-      const res = await request(app)
-        .put(`/api/products/${product.id}`)
-        .send({ name: "Hacked" });
-      expect(res.status).toBe(401);
-    });
-  });
-
-  describe("DELETE /api/products/:id", () => {
-    it("deletes a product as admin", async () => {
-      const token = await getAdminToken();
-      // Create then delete
-      const createRes = await request(app)
-        .post("/api/products")
-        .set("Authorization", `Bearer ${token}`)
-        .send({ slug: "to-delete", name: "Delete Me", price: 10 });
-      const id = createRes.body.product.id;
-
-      const res = await request(app)
-        .delete(`/api/products/${id}`)
-        .set("Authorization", `Bearer ${token}`);
-      expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
-
-      // Confirm deleted
-      const getRes = await request(app).get(`/api/products/${id}`);
-      expect(getRes.status).toBe(404);
+      const { data: stored } = await service
+        .from("products")
+        .select("id")
+        .eq("id", visibleProduct.id);
+      expect(stored).toHaveLength(1);
     });
   });
 });

@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import { api } from "./api";
+import { adminApi } from "./api";
 
 interface AuthGuardProps {
   children: ReactNode;
@@ -11,8 +11,8 @@ export default function AuthGuard({ children }: AuthGuardProps) {
   const location = useLocation();
 
   useEffect(() => {
-    api.get("/auth/me")
-      .then(() => setStatus("valid"))
+    adminApi.isAdmin()
+      .then((isAdmin) => setStatus(isAdmin ? "valid" : "invalid"))
       .catch(() => setStatus("invalid"));
   }, []);
 

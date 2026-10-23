@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { api } from "./api";
+import { adminApi } from "./api";
 import logo from "../../loudlayer_assets/logo.jpg";
 
 export default function LoginPage() {
@@ -15,7 +15,7 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
     try {
-      await api.post("/auth/login", { email, password });
+      await adminApi.login(email, password);
       navigate("/admin");
     } catch (err: any) {
       setError(err.message || "Login failed");

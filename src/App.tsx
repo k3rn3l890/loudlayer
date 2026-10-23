@@ -1,5 +1,4 @@
 import { Routes, Route, useLocation } from "react-router-dom";
-import { GoogleOAuthProvider } from "@react-oauth/google";
 import { AuthProvider } from "./lib/AuthContext";
 import { CartProvider } from "./lib/CartContext";
 import HomePage from "./pages/HomePage";
@@ -24,7 +23,6 @@ export default function App() {
   const hideWhatsApp = location.pathname.startsWith("/admin") || location.pathname === "/login" || location.pathname === "/signup";
 
   return (
-    <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
     <AuthProvider>
       <CartProvider>
       <Routes>
@@ -47,6 +45,5 @@ export default function App() {
       {!hideWhatsApp && <WhatsAppFloat />}
       </CartProvider>
     </AuthProvider>
-    </GoogleOAuthProvider>
   );
 }

@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, type ChangeEvent, type FormEvent } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { api } from "./api";
+import { adminApi } from "./api";
 import { Upload, X, ImageIcon } from "lucide-react";
 
 interface ProductForm {
@@ -36,9 +36,8 @@ export default function ProductFormPage() {
 
   useEffect(() => {
     if (!isEdit) return;
-    api.get<{ product: any }>(`/products/${id}`)
-      .then((data) => {
-        const p = data.product;
+    adminApi.getProduct(id!)
+      .then((p) => {
         setForm({
           name: p.name || "",
           price: String(p.price || ""),
@@ -97,40 +96,19 @@ export default function ProductFormPage() {
     const tags = form.tags ? form.tags.split(",").map((t) => t.trim()).filter(Boolean) : [];
 
     try {
-      if (isEdit && !imageFile) {
-        const body = {
-          slug,
-          name: form.name,
-          price: parseFloat(form.price) || 0,
-          ...(form.discount_price ? { discount_price: parseFloat(form.discount_price) } : {}),
-          ...(form.discount_percentage ? { discount_percentage: form.discount_percentage } : {}),
-          category: form.category || "",
-          description: form.description || "",
-          stock: parseInt(form.stock) || 0,
-          visible: !!form.visible,
-          tags,
-        };
-        await api.put(`/products/${id}`, body);
-      } else {
-        const fd = new FormData();
-        fd.append("slug", slug);
-        fd.append("name", form.name);
-        fd.append("price", String(parseFloat(form.price) || 0));
-        if (form.discount_price) fd.append("discount_price", String(parseFloat(form.discount_price)));
-        if (form.discount_percentage) fd.append("discount_percentage", form.discount_percentage);
-        fd.append("category", form.category || "");
-        fd.append("description", form.description || "");
-        fd.append("stock", String(parseInt(form.stock) || 0));
-        fd.append("visible", String(!!form.visible));
-        fd.append("tags", JSON.stringify(tags));
-        if (imageFile) fd.append("image", imageFile);
-
-        if (isEdit) {
-          await api.put(`/products/${id}`, fd);
-        } else {
-          await api.post("/products", fd);
-        }
-      }
+      const input = {
+        slug,
+        name: form.name,
+        price: parseFloat(form.price) || 0,
+        ...(form.discount_price ? { discount_price: parseFloat(form.discount_price) } : {}),
+        ...(form.discount_percentage ? { discount_percentage: form.discount_percentage } : {}),
+        category: form.category || "",
+        description: form.description || "",
+        stock: parseInt(form.stock) || 0,
+        visible: !!form.visible,
+        tags,
+      };
+      await adminApi.saveProduct(isEdit ? id! : null, input, imageFile);
       navigate("/admin/products");
     } catch (err: any) {
       setError(err.message);

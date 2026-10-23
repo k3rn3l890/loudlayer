@@ -1,92 +1,136 @@
-import { describe, it, expect } from "vitest";
-import request from "supertest";
-import { createTestApp } from "./helpers";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import {
+  anon,
+  cleanup,
+  createTestProduct,
+  createTestUser,
+  type TestUser,
+} from "./supabase-helpers";
 
-const app = createTestApp();
+let customer: TestUser;
+let otherCustomer: TestUser;
+const productIds: number[] = [];
 
-async function getCustomerToken(): Promise<string> {
-  const res = await request(app)
-    .post("/api/auth/register")
-    .send({ email: `cart-test-${Date.now()}@test.com`, password: "password123", name: "Cart Tester" });
-  return res.body.token;
+beforeAll(async () => {
+  customer = await createTestUser();
+  otherCustomer = await createTestUser();
+});
+
+afterAll(async () => {
+  await cleanup({
+    userIds: [customer.id, otherCustomer.id],
+    productIds,
+  });
+});
+
+async function product(stock = 5) {
+  const row = await createTestProduct({ stock });
+  productIds.push(row.id);
+  return row;
 }
 
-describe("Cart Routes", () => {
-  describe("GET /api/cart", () => {
-    it("returns empty cart for new user", async () => {
-      const token = await getCustomerToken();
-      const res = await request(app)
-        .get("/api/cart")
-        .set("Authorization", `Bearer ${token}`);
-      expect(res.status).toBe(200);
-      expect(res.body.items).toEqual([]);
-    });
-
-    it("rejects unauthenticated request", async () => {
-      const res = await request(app).get("/api/cart");
-      expect(res.status).toBe(401);
-    });
+describe("Cart (replace_user_cart RPC)", () => {
+  it("starts empty for a new user", async () => {
+    const { data, error } = await customer.client.from("cart_items").select("*");
+    expect(error).toBeNull();
+    expect(data).toEqual([]);
   });
 
-  describe("PUT /api/cart", () => {
-    it("adds items to cart", async () => {
-      const token = await getCustomerToken();
-      const products = await request(app).get("/api/products?visible=1");
-      const product = products.body.products[0];
+  it("adds items with quantity and size", async () => {
+    const jacket = await product();
 
-      const res = await request(app)
-        .put("/api/cart")
-        .set("Authorization", `Bearer ${token}`)
-        .send({
-          items: [{
-            product: { id: product.id, price: product.price, name: product.name },
-            quantity: 2,
-            selectedSize: "M",
-          }],
-        });
-      expect(res.status).toBe(200);
-      expect(res.body.items.length).toBe(1);
-      expect(res.body.items[0].quantity).toBe(2);
-      expect(res.body.items[0].size).toBe("M");
+    const { data, error } = await customer.client.rpc("replace_user_cart", {
+      p_items: [{ product_id: jacket.id, quantity: 2, size: "M" }],
     });
 
-    it("replaces cart on PUT", async () => {
-      const token = await getCustomerToken();
-      const products = await request(app).get("/api/products?visible=1");
+    expect(error).toBeNull();
+    expect(data).toHaveLength(1);
+    expect(data[0]).toMatchObject({ product_id: String(jacket.id), quantity: 2, size: "M" });
+    expect(data[0].product_data.name).toBe("Test Product");
+  });
 
-      // Add first item
-      await request(app)
-        .put("/api/cart")
-        .set("Authorization", `Bearer ${token}`)
-        .send({
-          items: [{
-            product: { id: products.body.products[0].id, price: products.body.products[0].price },
-            quantity: 1,
-          }],
-        });
+  it("replaces the whole cart", async () => {
+    const first = await product();
+    const second = await product();
 
-      // Replace with second item
-      const res = await request(app)
-        .put("/api/cart")
-        .set("Authorization", `Bearer ${token}`)
-        .send({
-          items: [{
-            product: { id: products.body.products[1].id, price: products.body.products[1].price },
-            quantity: 3,
-          }],
-        });
-      expect(res.body.items.length).toBe(1);
-      expect(res.body.items[0].quantity).toBe(3);
+    await customer.client.rpc("replace_user_cart", {
+      p_items: [{ product_id: first.id, quantity: 1, size: "S" }],
+    });
+    const { data } = await customer.client.rpc("replace_user_cart", {
+      p_items: [{ product_id: second.id, quantity: 3, size: "L" }],
     });
 
-    it("clears cart with empty items", async () => {
-      const token = await getCustomerToken();
-      const res = await request(app)
-        .put("/api/cart")
-        .set("Authorization", `Bearer ${token}`)
-        .send({ items: [] });
-      expect(res.status).toBe(200);
-      expect(res.body.items).toEqual([]);
+    expect(data).toHaveLength(1);
+    expect(data[0]).toMatchObject({ product_id: String(second.id), quantity: 3, size: "L" });
+  });
+
+  it("clears the cart with an empty array", async () => {
+    const jacket = await product();
+    await customer.client.rpc("replace_user_cart", {
+      p_items: [{ product_id: jacket.id, quantity: 1, size: "M" }],
     });
+
+    const { data } = await customer.client.rpc("replace_user_cart", { p_items: [] });
+    expect(data).toEqual([]);
+
+    const { data: stored } = await customer.client.from("cart_items").select("id");
+    expect(stored).toEqual([]);
+  });
+
+  it("clamps quantity to available stock", async () => {
+    const scarce = await product(2);
+
+    const { data } = await customer.client.rpc("replace_user_cart", {
+      p_items: [{ product_id: scarce.id, quantity: 10, size: "M" }],
+    });
+
+    expect(data[0].quantity).toBe(2);
+  });
+
+  it("skips out-of-stock products", async () => {
+    const soldOut = await product(0);
+
+    const { data } = await customer.client.rpc("replace_user_cart", {
+      p_items: [{ product_id: soldOut.id, quantity: 1, size: "M" }],
+    });
+
+    expect(data).toEqual([]);
+  });
+
+  it("keeps each customer's cart private", async () => {
+    const jacket = await product();
+    await customer.client.rpc("replace_user_cart", {
+      p_items: [{ product_id: jacket.id, quantity: 1, size: "M" }],
+    });
+
+    const { data: own } = await customer.client.from("cart_items").select("id");
+    const { data: others } = await otherCustomer.client.from("cart_items").select("id");
+
+    expect(own?.length).toBeGreaterThan(0);
+    expect(others).toEqual([]);
+  });
+
+  it("rejects writing a row for another user", async () => {
+    const jacket = await product();
+
+    const { error } = await customer.client.from("cart_items").insert({
+      user_id: otherCustomer.id,
+      product_id: String(jacket.id),
+      product_data: { id: String(jacket.id), name: "Stolen" },
+      quantity: 1,
+      size: "M",
+    });
+
+    expect(error).not.toBeNull();
+  });
+
+  it("rejects anonymous RPC calls", async () => {
+    const jacket = await product();
+
+    const { error } = await anon.rpc("replace_user_cart", {
+      p_items: [{ product_id: jacket.id, quantity: 1, size: "M" }],
+    });
+
+    expect(error).not.toBeNull();
   });
 });

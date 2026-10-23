@@ -6,28 +6,10 @@ import Footer from "../components/Footer";
 import CartDrawer from "../components/CartDrawer";
 import { useAuth } from "../lib/AuthContext";
 import { useCart } from "../lib/CartContext";
-import { apiGet, apiPost } from "../lib/userApi";
+import { getProductBySlug, getProductReviews, createReview, createOrder, getProducts, notifyOrderEmails } from "../lib/userApi";
+import { mapDbProduct } from "../lib/productMapper";
 import { Product, CartItem, Review, ReviewStats } from "../types";
 import { Heart, ShoppingBag, ShoppingCart, Star, ArrowLeft, Sparkles } from "lucide-react";
-
-function mapDbProduct(p: any): Product {
-  let tags: string[] = [];
-  try { tags = JSON.parse(p.tags || "[]"); } catch {}
-  return {
-    id: String(p.id),
-    slug: p.slug || "",
-    name: p.name,
-    price: p.price,
-    discountPrice: p.discount_price ?? undefined,
-    discountPercentage: p.discount_percentage ?? undefined,
-    image: p.image || "/placeholder-product.svg",
-    category: p.category || "",
-    code: p.code ?? undefined,
-    tags,
-    description: p.description ?? undefined,
-    stock: p.stock ?? 0,
-  };
-}
 
 const SIZES = ["S", "M", "L", "XL"];
 
@@ -63,19 +45,18 @@ export default function ProductDetailPage() {
     if (!slug) return;
     setLoading(true);
     Promise.all([
-      apiGet<{ product: any }>(`/products/slug/${slug}`),
-      apiGet<{ reviews: any[]; stats: any }>(`/products/${slug}/reviews`),
+      getProductBySlug(slug),
+      getProductReviews(slug),
     ])
-      .then(([pData, rData]) => {
-        const p = mapDbProduct(pData.product);
+      .then(([p, rData]) => {
         setProduct(p);
         setReviews(rData.reviews);
         setReviewStats(rData.stats);
 
         if (p.category) {
-          apiGet<{ products: any[] }>(`/products?category=${encodeURIComponent(p.category)}&visible=1`)
-            .then((data) => {
-              setRelated(data.products.map(mapDbProduct).filter((r) => r.slug !== p.slug).slice(0, 4));
+          getProducts({ category: p.category, visible: true })
+            .then((products) => {
+              setRelated(products.filter((r) => r.slug !== p.slug).slice(0, 4));
             })
             .catch(() => {});
         }
@@ -105,16 +86,13 @@ export default function ProductDetailPage() {
     if (!slug || !user) return;
     setSubmittingReview(true);
     try {
-      const data = await apiPost<{ review: any }>(`/products/${slug}/reviews`, {
-        rating: reviewRating,
-        body: reviewBody,
-      });
+      const data = await createReview(slug, reviewRating, reviewBody);
       setReviews((prev) => [{
-        id: data.review.id,
-        rating: data.review.rating,
-        body: data.review.body,
-        user_name: data.review.user_name,
-        created_at: data.review.created_at,
+        id: data.id,
+        rating: data.rating,
+        body: data.body,
+        user_name: data.user_name,
+        created_at: data.created_at,
       }, ...prev]);
       setReviewStats((prev) => ({
         count: prev.count + 1,
@@ -144,7 +122,8 @@ export default function ProductDetailPage() {
       shipping_address: address,
     };
     try {
-      const data = await apiPost<{ order: any; skipped_items?: { name: string; reason: string }[] }>("/orders", payload);
+      const data = await createOrder(payload);
+      void notifyOrderEmails(Number(data.order.id), "created");
       const skippedNames = data.skipped_items?.map((s) => s.name).join(", ");
       if (data.skipped_items && data.skipped_items.length > 0) {
         const skippedIds = items

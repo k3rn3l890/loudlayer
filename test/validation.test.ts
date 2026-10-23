@@ -1,69 +1,142 @@
-import { describe, it, expect } from "vitest";
-import { createTestApp } from "./helpers";
-import request from "supertest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import {
+  cleanup,
+  createTestProduct,
+  createTestUser,
+  service,
+  unique,
+  type TestUser,
+} from "./supabase-helpers";
 
-const app = createTestApp();
+let customer: TestUser;
+const productIds: number[] = [];
 
-describe("Validation Schemas", () => {
-  describe("CreateProductSchema", () => {
-    it("accepts valid product data", async () => {
-      const token = (await request(app).post("/api/auth/login").send({ email: "loudlayer000@gmail.com", password: "12Flowers$$$" })).body.token;
-      const res = await request(app)
-        .post("/api/products")
-        .set("Authorization", `Bearer ${token}`)
-        .send({
-          slug: "valid-product",
-          name: "Valid Product",
-          price: 100,
-          category: "Test",
-          stock: 50,
-          tags: ["tag1", "tag2"],
-        });
-      expect(res.status).toBe(201);
-    });
+beforeAll(async () => {
+  customer = await createTestUser({ name: "Constraint Tester" });
+});
 
-    it("rejects missing slug", async () => {
-      const token = (await request(app).post("/api/auth/login").send({ email: "loudlayer000@gmail.com", password: "12Flowers$$$" })).body.token;
-      const res = await request(app)
-        .post("/api/products")
-        .set("Authorization", `Bearer ${token}`)
-        .send({ name: "No Slug", price: 100 });
-      expect(res.status).toBe(400);
-    });
+afterAll(async () => {
+  await cleanup({ userIds: [customer.id], productIds });
+});
 
-    it("rejects negative price", async () => {
-      const token = (await request(app).post("/api/auth/login").send({ email: "loudlayer000@gmail.com", password: "12Flowers$$$" })).body.token;
-      const res = await request(app)
-        .post("/api/products")
-        .set("Authorization", `Bearer ${token}`)
-        .send({ slug: "neg-price", name: "Neg", price: -10 });
-      expect(res.status).toBe(400);
-    });
+describe("Database constraints (replace server-side validation)", () => {
+  it("rejects negative product prices", async () => {
+    const { error } = await service
+      .from("products")
+      .insert({ slug: unique("negative-price"), name: "Bad", price: -1, stock: 1 });
+
+    expect(error?.code).toBe("23514");
   });
 
-  describe("CreateOrderSchema", () => {
-    it("rejects empty items array", async () => {
-      const token = (await request(app).post("/api/auth/register").send({ email: `val-test-${Date.now()}@test.com`, password: "password123" })).body.token;
-      const res = await request(app)
-        .post("/api/orders")
-        .set("Authorization", `Bearer ${token}`)
-        .send({ items: [] });
-      expect(res.status).toBe(400);
-    });
+  it("rejects negative stock", async () => {
+    const { error } = await service
+      .from("products")
+      .insert({ slug: unique("negative-stock"), name: "Bad", price: 10, stock: -1 });
+
+    expect(error?.code).toBe("23514");
   });
 
-  describe("UpdateStatusSchema", () => {
-    it("rejects invalid status value", async () => {
-      const token = (await request(app).post("/api/auth/login").send({ email: "loudlayer000@gmail.com", password: "12Flowers$$$" })).body.token;
-      const list = await request(app).get("/api/orders").set("Authorization", `Bearer ${token}`);
-      if (list.body.orders.length > 0) {
-        const id = list.body.orders[0].id;
-        const res = await request(app)
-          .patch(`/api/orders/${id}/status`)
-          .set("Authorization", `Bearer ${token}`)
-          .send({ status: "bogus" });
-        expect(res.status).toBe(400);
-      }
+  it("rejects duplicate product slugs", async () => {
+    const product = await createTestProduct();
+    productIds.push(product.id);
+
+    const { error } = await service
+      .from("products")
+      .insert({ slug: product.slug, name: "Duplicate", price: 10, stock: 1 });
+
+    expect(error?.code).toBe("23505");
+  });
+
+  it("requires a product name", async () => {
+    const { error } = await service
+      .from("products")
+      .insert({ slug: unique("no-name"), price: 10, stock: 1 });
+
+    expect(error?.code).toBe("23502");
+  });
+
+  it("rejects invalid order statuses", async () => {
+    const { error } = await service.from("orders").insert({
+      order_number: unique("ORD-BAD"),
+      customer_name: "Bad Status",
+      status: "lost_in_transit",
+      total: 10,
     });
+
+    expect(error?.code).toBe("23514");
+  });
+
+  it("rejects duplicate order numbers", async () => {
+    const orderNumber = unique("ORD-DUP");
+    const { data } = await service
+      .from("orders")
+      .insert({ order_number: orderNumber, customer_name: "First", total: 10 })
+      .select("id")
+      .single();
+
+    const { error } = await service
+      .from("orders")
+      .insert({ order_number: orderNumber, customer_name: "Second", total: 10 });
+
+    expect(error?.code).toBe("23505");
+
+    if (data?.id) await service.from("orders").delete().eq("id", data.id);
+  });
+
+  it("rejects review ratings outside 1-5", async () => {
+    const product = await createTestProduct();
+    productIds.push(product.id);
+
+    const { error } = await service.from("reviews").insert({
+      product_id: product.id,
+      user_id: customer.id,
+      rating: 0,
+      body: "Zero stars",
+    });
+
+    expect(error?.code).toBe("23514");
+  });
+
+  it("rejects invalid profile roles", async () => {
+    const { error } = await service
+      .from("profiles")
+      .update({ role: "superadmin" })
+      .eq("id", customer.id);
+
+    expect(error?.code).toBe("23514");
+  });
+
+  it("rejects zero-quantity cart rows", async () => {
+    const product = await createTestProduct();
+    productIds.push(product.id);
+
+    const { error } = await service.from("cart_items").insert({
+      user_id: customer.id,
+      product_id: String(product.id),
+      product_data: { id: String(product.id), name: product.name },
+      quantity: 0,
+      size: "M",
+    });
+
+    expect(error?.code).toBe("23514");
+  });
+
+  it("rejects zero-quantity order items", async () => {
+    const { data: order } = await service
+      .from("orders")
+      .insert({ order_number: unique("ORD-ITEM"), customer_name: "Items", total: 0 })
+      .select("id")
+      .single();
+
+    const { error } = await service.from("order_items").insert({
+      order_id: order!.id,
+      product_name: "Bad item",
+      product_price: 10,
+      quantity: 0,
+    });
+
+    expect(error?.code).toBe("23514");
+
+    await service.from("orders").delete().eq("id", order!.id);
   });
 });

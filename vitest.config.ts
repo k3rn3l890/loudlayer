@@ -11,8 +11,10 @@ export default defineConfig({
     globals: true,
     environment: "node",
     setupFiles: ["./test/setup.ts"],
-    include: ["server/**/*.test.ts", "test/**/*.test.ts"],
-    testTimeout: 15000,
-    hookTimeout: 15000,
+    include: ["test/**/*.test.ts"],
+    exclude: ["test/frontend/**", "node_modules/**"],
+    testTimeout: 30000,
+    hookTimeout: 30000,
+    fileParallelism: false,
   },
 });

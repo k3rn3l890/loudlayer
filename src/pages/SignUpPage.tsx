@@ -1,13 +1,12 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { GoogleLogin } from "@react-oauth/google";
 import { useAuth } from "../lib/AuthContext";
 
 import logo from "../../loudlayer_assets/logo.jpg";
 
 export default function SignUpPage() {
   const navigate = useNavigate();
-  const { register, loginWithGoogle } = useAuth();
+  const { register } = useAuth();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -87,31 +86,6 @@ export default function SignUpPage() {
             {loading ? "Creating account..." : "Sign Up"}
           </button>
         </form>
-
-        <div className="relative my-6">
-          <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-neutral-200" /></div>
-          <div className="relative flex justify-center text-xs"><span className="bg-zinc-50 px-3 text-neutral-400 font-mono">OR</span></div>
-        </div>
-
-        <div className="flex justify-center">
-          <GoogleLogin
-            onSuccess={async (res) => {
-              if (res.credential) {
-                try {
-                  await loginWithGoogle(res.credential);
-                  setTimeout(() => navigate("/"), 0);
-                } catch (err: any) {
-                  setError(err.message);
-                }
-              }
-            }}
-            onError={() => setError("Google sign-in failed")}
-            theme="outline"
-            size="large"
-            shape="rectangular"
-            text="signup_with"
-          />
-        </div>
 
         <p className="text-xs text-neutral-400 text-center mt-6">
           Already have an account?{" "}

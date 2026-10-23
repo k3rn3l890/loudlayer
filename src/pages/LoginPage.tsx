@@ -1,12 +1,12 @@
 import { useState, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { GoogleLogin } from "@react-oauth/google";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext";
 import logo from "../../loudlayer_assets/logo.jpg";
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { login, loginWithGoogle } = useAuth();
+  const location = useLocation();
+  const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -18,7 +18,8 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(email, password);
-      const from = new URLSearchParams(window.location.search).get("redirect") || "/";
+      const requested = new URLSearchParams(location.search).get("redirect") || "/";
+      const from = requested.startsWith("/") ? requested : "/";
       // Defer navigation so React commits auth state before route changes
       setTimeout(() => navigate(from), 0);
     } catch (err: any) {
@@ -77,31 +78,6 @@ export default function LoginPage() {
             {loading ? "Signing in..." : "Sign In"}
           </button>
         </form>
-
-        <div className="relative my-6">
-          <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-neutral-200" /></div>
-          <div className="relative flex justify-center text-xs"><span className="bg-zinc-50 px-3 text-neutral-400 font-mono">OR</span></div>
-        </div>
-
-        <div className="flex justify-center">
-          <GoogleLogin
-            onSuccess={async (res) => {
-              if (res.credential) {
-                try {
-                  await loginWithGoogle(res.credential);
-                  setTimeout(() => navigate("/"), 0);
-                } catch (err: any) {
-                  setError(err.message);
-                }
-              }
-            }}
-            onError={() => setError("Google sign-in failed")}
-            theme="outline"
-            size="large"
-            shape="rectangular"
-            text="signin_with"
-          />
-        </div>
 
         <p className="text-xs text-neutral-400 text-center mt-6">
           Don't have an account?{" "}

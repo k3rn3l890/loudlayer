@@ -1,94 +1,146 @@
-import { describe, it, expect, beforeAll } from "vitest";
-import request from "supertest";
-import { createTestApp } from "./helpers";
+import { describe, it, expect, afterAll } from "vitest";
+import { anon, createTestUser, service, unique, cleanup } from "./supabase-helpers";
 
-const app = createTestApp();
+const createdUserIds: string[] = [];
 
-describe("Auth Routes", () => {
-  describe("POST /api/auth/register", () => {
-    it("registers a new customer", async () => {
-      const res = await request(app)
-        .post("/api/auth/register")
-        .send({ email: "new@test.com", password: "password123", name: "Test User" });
-      expect(res.status).toBe(200);
-      expect(res.body.token).toBeDefined();
-      expect(res.body.user.email).toBe("new@test.com");
-      expect(res.body.user.role).toBe("customer");
+afterAll(async () => {
+  await cleanup({ userIds: createdUserIds });
+});
+
+describe("Auth (Supabase)", () => {
+  describe("registration", () => {
+    it("creates a confirmed customer with an auto-generated profile", async () => {
+      const user = await createTestUser({ name: "New Customer" });
+      createdUserIds.push(user.id);
+
+      const { data: profile, error } = await service
+        .from("profiles")
+        .select("id, email, name, role, provider")
+        .eq("id", user.id)
+        .single();
+
+      expect(error).toBeNull();
+      expect(profile).toMatchObject({
+        id: user.id,
+        email: user.email,
+        name: "New Customer",
+        role: "customer",
+        provider: "email",
+      });
     });
 
-    it("rejects duplicate email", async () => {
-      const res = await request(app)
-        .post("/api/auth/register")
-        .send({ email: "new@test.com", password: "password123", name: "Test User" });
-      expect(res.status).toBe(409);
-      expect(res.body.error).toContain("already registered");
+    it("rejects invalid email addresses", async () => {
+      const { error } = await anon.auth.signUp({
+        email: "not-an-email",
+        password: "password123",
+      });
+
+      expect(error).not.toBeNull();
     });
 
-    it("rejects invalid email", async () => {
-      const res = await request(app)
-        .post("/api/auth/register")
-        .send({ email: "not-an-email", password: "password123" });
-      expect(res.status).toBe(400);
+    it("rejects passwords shorter than the project minimum", async () => {
+      const { error } = await anon.auth.signUp({
+        email: `${unique("short-password")}@example.com`,
+        password: "123",
+      });
+
+      expect(error).not.toBeNull();
     });
 
-    it("rejects short password", async () => {
-      const res = await request(app)
-        .post("/api/auth/register")
-        .send({ email: "test2@test.com", password: "123" });
-      expect(res.status).toBe(400);
-    });
-  });
+    it("rejects a duplicate email", async () => {
+      const user = await createTestUser();
+      createdUserIds.push(user.id);
 
-  describe("POST /api/auth/login", () => {
-    it("logs in with valid credentials", async () => {
-      const res = await request(app)
-        .post("/api/auth/login")
-        .send({ email: "loudlayer000@gmail.com", password: "12Flowers$$$" });
-      expect(res.status).toBe(200);
-      expect(res.body.token).toBeDefined();
-      expect(res.body.user.role).toBe("admin");
-    });
+      const { error } = await service.auth.admin.createUser({
+        email: user.email,
+        password: "AnotherPassword123!",
+        email_confirm: true,
+      });
 
-    it("rejects wrong password", async () => {
-      const res = await request(app)
-        .post("/api/auth/login")
-        .send({ email: "loudlayer000@gmail.com", password: "wrongpassword" });
-      expect(res.status).toBe(401);
-    });
-
-    it("rejects non-existent email", async () => {
-      const res = await request(app)
-        .post("/api/auth/login")
-        .send({ email: "nobody@test.com", password: "password123" });
-      expect(res.status).toBe(401);
+      expect(error).not.toBeNull();
+      expect(error?.message.toLowerCase()).toContain("already");
     });
   });
 
-  describe("GET /api/auth/me", () => {
-    it("returns user info with valid token", async () => {
-      const loginRes = await request(app)
-        .post("/api/auth/login")
-        .send({ email: "loudlayer000@gmail.com", password: "12Flowers$$$" });
-      const token = loginRes.body.token;
+  describe("sign in", () => {
+    it("signs in with valid credentials and exposes the profile", async () => {
+      const user = await createTestUser({ name: "Sign In User" });
+      createdUserIds.push(user.id);
 
-      const res = await request(app)
-        .get("/api/auth/me")
-        .set("Authorization", `Bearer ${token}`);
-      expect(res.status).toBe(200);
-      expect(res.body.user.email).toBe("loudlayer000@gmail.com");
+      const { data: authData, error: authError } = await user.client.auth.getUser();
+      expect(authError).toBeNull();
+      expect(authData.user?.email).toBe(user.email);
+
+      const { data: profile } = await user.client
+        .from("profiles")
+        .select("email, name, role")
+        .eq("id", user.id)
+        .single();
+
+      expect(profile).toMatchObject({ email: user.email, name: "Sign In User", role: "customer" });
     });
 
-    it("rejects unauthenticated request", async () => {
-      const res = await request(app).get("/api/auth/me");
-      expect(res.status).toBe(401);
+    it("rejects a wrong password", async () => {
+      const user = await createTestUser();
+      createdUserIds.push(user.id);
+
+      const { error } = await anon.auth.signInWithPassword({
+        email: user.email,
+        password: "definitely-wrong",
+      });
+
+      expect(error?.message.toLowerCase()).toContain("invalid login credentials");
+    });
+
+    it("rejects an unknown email", async () => {
+      const { error } = await anon.auth.signInWithPassword({
+        email: `${unique("nobody")}@example.com`,
+        password: "password123",
+      });
+
+      expect(error?.message.toLowerCase()).toContain("invalid login credentials");
     });
   });
 
-  describe("POST /api/auth/logout", () => {
-    it("clears the cookie", async () => {
-      const res = await request(app).post("/api/auth/logout");
-      expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
+  describe("roles and RLS", () => {
+    it("marks an admin account and lets is_admin() see it", async () => {
+      const admin = await createTestUser({ role: "admin" });
+      createdUserIds.push(admin.id);
+
+      const { data: isAdmin } = await admin.client.rpc("is_admin");
+      expect(isAdmin).toBe(true);
+    });
+
+    it("reports false for regular customers", async () => {
+      const customer = await createTestUser();
+      createdUserIds.push(customer.id);
+
+      const { data: isAdmin } = await customer.client.rpc("is_admin");
+      expect(isAdmin).toBe(false);
+    });
+
+    it("hides other users' profiles", async () => {
+      const first = await createTestUser({ name: "First" });
+      const second = await createTestUser({ name: "Second" });
+      createdUserIds.push(first.id, second.id);
+
+      const { data } = await first.client
+        .from("profiles")
+        .select("id, name")
+        .eq("id", second.id);
+
+      expect(data).toEqual([]);
+    });
+
+    it("returns nothing for anonymous profile reads", async () => {
+      const user = await createTestUser();
+      createdUserIds.push(user.id);
+
+      const { data, error } = await anon.from("profiles").select("id, email");
+
+      // Anonymous callers have no SELECT grant/policy; both an empty result and
+      // a permission error are acceptable as long as no row leaks.
+      expect(error ? [] : data).toEqual([]);
     });
   });
 });

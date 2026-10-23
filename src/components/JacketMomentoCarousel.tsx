@@ -3,31 +3,12 @@ import { Link } from "react-router-dom";
 import { ArrowLeft, ArrowRight, ShieldCheck, ShoppingCart, Eye } from "lucide-react";
 import { motion } from "motion/react";
 import { Product } from "../types";
-import { apiGet } from "../lib/userApi";
+import { getProducts } from "../lib/userApi";
+import { mapDbProduct } from "../lib/productMapper";
 
 interface JacketMomentoCarouselProps {
   onAddToCart: (p: Product, size: string) => void;
   onAddToWishlist: (p: Product) => void;
-}
-
-function mapDbProduct(p: any): Product {
-  let tags: string[] = [];
-  if (Array.isArray(p.tags)) tags = p.tags;
-  else if (typeof p.tags === "string") try { tags = JSON.parse(p.tags); } catch {}
-  return {
-    id: String(p.id),
-    slug: p.slug || "",
-    name: p.name,
-    price: p.price,
-    discountPrice: p.discount_price ?? undefined,
-    discountPercentage: p.discount_percentage ?? undefined,
-    image: p.image || "/placeholder-product.svg",
-    category: p.category || "",
-    code: p.code ?? undefined,
-    tags,
-    description: p.description ?? undefined,
-    stock: p.stock ?? 0,
-  };
 }
 
 export default function JacketMomentoCarousel({
@@ -39,9 +20,8 @@ export default function JacketMomentoCarousel({
   const sliderRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    apiGet<{ products: any[] }>("/products?visible=1")
-      .then((data) => {
-        const products = data.products.map(mapDbProduct);
+    getProducts({ visible: true })
+      .then((products) => {
         setDiscoverProducts(products);
         if (products.length > 0) setSelectedJacketId(products[0].id);
       })

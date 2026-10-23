@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
-import { api } from "./api";
+import { adminApi } from "./api";
 import {
   LayoutDashboard, Package, ShoppingCart, LogOut, Menu, X
 } from "lucide-react";
@@ -11,7 +11,7 @@ export default function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const handleLogout = async () => {
-    try { await api.post("/auth/logout", {}); } catch {}
+    try { await adminApi.logout(); } catch {}
     navigate("/admin/login");
   };
 

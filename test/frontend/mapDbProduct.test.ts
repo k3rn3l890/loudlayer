@@ -1,51 +1,26 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 
-// Test the mapDbProduct logic extracted from StorePage
-// This is a pure function test - no rendering needed
+vi.mock("../../src/lib/supabase", () => ({
+  resolveImage: (image?: string | null, fallback = "/placeholder-product.svg") => {
+    if (!image) return fallback;
+    if (/^https?:\/\//i.test(image)) return image;
+    if (image.startsWith("/uploads/")) {
+      return `https://project.supabase.co/storage/v1/object/public/product-images/legacy/${image.slice("/uploads/".length)}`;
+    }
+    return image;
+  },
+}));
 
-interface DbProduct {
-  id: number;
-  slug: string;
-  name: string;
-  price: number;
-  discount_price?: number | null;
-  discount_percentage?: string | null;
-  image?: string;
-  category?: string;
-  code?: string;
-  tags?: string[] | string;
-  description?: string;
-  stock?: number;
-}
-
-function mapDbProduct(p: DbProduct) {
-  let tags: string[] = [];
-  if (Array.isArray(p.tags)) tags = p.tags;
-  else if (typeof p.tags === "string") try { tags = JSON.parse(p.tags); } catch {}
-  return {
-    id: String(p.id),
-    slug: p.slug || "",
-    name: p.name,
-    price: p.price,
-    discountPrice: p.discount_price ?? undefined,
-    discountPercentage: p.discount_percentage ?? undefined,
-    image: p.image || "/placeholder-product.svg",
-    category: p.category || "",
-    code: p.code ?? undefined,
-    tags,
-    description: p.description ?? undefined,
-    stock: p.stock ?? 0,
-  };
-}
+import { mapDbProduct } from "../../src/lib/productMapper";
 
 describe("mapDbProduct", () => {
-  it("maps a full DB product to frontend Product", () => {
-    const dbProduct: DbProduct = {
+  it("maps a full DB product to the frontend Product shape", () => {
+    const result = mapDbProduct({
       id: 1,
       slug: "test-product",
       name: "Test Product",
-      price: 99.99,
-      discount_price: 79.99,
+      price: "99.99",
+      discount_price: "79.99",
       discount_percentage: "20%",
       image: "/uploads/test.jpg",
       category: "Jacket",
@@ -53,30 +28,28 @@ describe("mapDbProduct", () => {
       tags: ["Premium", "Limited"],
       description: "A test product",
       stock: 10,
-    };
+    });
 
-    const result = mapDbProduct(dbProduct);
-    expect(result.id).toBe("1");
-    expect(result.name).toBe("Test Product");
-    expect(result.price).toBe(99.99);
-    expect(result.discountPrice).toBe(79.99);
-    expect(result.discountPercentage).toBe("20%");
-    expect(result.image).toBe("/uploads/test.jpg");
-    expect(result.category).toBe("Jacket");
-    expect(result.code).toBe("TST-01");
-    expect(result.tags).toEqual(["Premium", "Limited"]);
-    expect(result.stock).toBe(10);
+    expect(result).toEqual({
+      id: "1",
+      slug: "test-product",
+      name: "Test Product",
+      price: 99.99,
+      discountPrice: 79.99,
+      discountPercentage: "20%",
+      image:
+        "https://project.supabase.co/storage/v1/object/public/product-images/legacy/test.jpg",
+      category: "Jacket",
+      code: "TST-01",
+      tags: ["Premium", "Limited"],
+      description: "A test product",
+      stock: 10,
+    });
   });
 
   it("handles null/undefined fields gracefully", () => {
-    const dbProduct: DbProduct = {
-      id: 2,
-      slug: "minimal",
-      name: "Minimal",
-      price: 50,
-    };
+    const result = mapDbProduct({ id: 2, slug: "minimal", name: "Minimal", price: 50 });
 
-    const result = mapDbProduct(dbProduct);
     expect(result.discountPrice).toBeUndefined();
     expect(result.discountPercentage).toBeUndefined();
     expect(result.image).toBe("/placeholder-product.svg");
@@ -87,40 +60,44 @@ describe("mapDbProduct", () => {
   });
 
   it("parses JSON string tags", () => {
-    const dbProduct: DbProduct = {
+    const result = mapDbProduct({
       id: 3,
       slug: "json-tags",
       name: "JSON Tags",
       price: 30,
       tags: '["tag1", "tag2"]',
-    };
+    });
 
-    const result = mapDbProduct(dbProduct);
     expect(result.tags).toEqual(["tag1", "tag2"]);
   });
 
-  it("handles invalid JSON tags gracefully", () => {
-    const dbProduct: DbProduct = {
+  it("handles malformed JSON tags gracefully", () => {
+    const result = mapDbProduct({
       id: 4,
       slug: "bad-tags",
       name: "Bad Tags",
       price: 30,
       tags: "not-json",
-    };
+    });
 
-    const result = mapDbProduct(dbProduct);
     expect(result.tags).toEqual([]);
   });
 
-  it("handles numeric id conversion to string", () => {
-    const dbProduct: DbProduct = {
-      id: 999,
-      slug: "num-id",
-      name: "Num ID",
+  it("keeps absolute image URLs untouched", () => {
+    const result = mapDbProduct({
+      id: 5,
+      slug: "cdn",
+      name: "CDN",
       price: 10,
-    };
+      image: "https://cdn.example.com/jacket.jpg",
+    });
 
-    const result = mapDbProduct(dbProduct);
+    expect(result.image).toBe("https://cdn.example.com/jacket.jpg");
+  });
+
+  it("converts numeric ids to strings", () => {
+    const result = mapDbProduct({ id: 999, slug: "num-id", name: "Num ID", price: 10 });
+
     expect(typeof result.id).toBe("string");
     expect(result.id).toBe("999");
   });

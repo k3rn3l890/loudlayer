@@ -9,7 +9,7 @@ interface HeaderProps {
   wishlistCount: number;
   onWishlistClick: () => void;
   onSearch: (query: string) => void;
-  user?: { id: number; email: string; name: string } | null;
+  user?: { id: string; email: string; name: string } | null;
 }
 
 export default function Header({
@@ -37,23 +37,21 @@ export default function Header({
 
       {/* Center Logo */}
       <div className="text-center select-none truncate">
-        <a href="/" className="font-sans text-sm sm:text-lg md:text-2xl font-light tracking-[0.15em] sm:tracking-[0.25em] md:tracking-[0.35em] text-neutral-900 transition-opacity hover:opacity-80">
+        <Link to="/" className="font-sans text-sm sm:text-lg md:text-2xl font-light tracking-[0.15em] sm:tracking-[0.25em] md:tracking-[0.35em] text-neutral-900 transition-opacity hover:opacity-80">
           LOUDLAYER
-        </a>
+        </Link>
       </div>
 
       {/* Right Actions */}
       <div className="flex items-center gap-0 md:gap-2">
-        {/* Account / Login — hidden on static builds (no backend) */}
-        {import.meta.env.VITE_API_URL && (
-          <Link
-            to={user ? "/account" : `/login?redirect=${location.pathname === "/" || location.pathname === "/store" ? location.pathname : "/"}`}
-            className="p-2 rounded-full hover:bg-neutral-200/50 transition-colors group"
-            aria-label={user ? "My Account" : "Sign In"}
-          >
-            <User className="w-5 h-5 text-neutral-800 group-hover:scale-105 transition-transform" />
-          </Link>
-        )}
+        {/* Account / Login */}
+        <Link
+          to={user ? "/account" : `/login?redirect=${location.pathname === "/" || location.pathname === "/store" ? location.pathname : "/"}`}
+          className="p-2 rounded-full hover:bg-neutral-200/50 transition-colors group"
+          aria-label={user ? "My Account" : "Sign In"}
+        >
+          <User className="w-5 h-5 text-neutral-800 group-hover:scale-105 transition-transform" />
+        </Link>
 
         {/* Search Toggle */}
         <button

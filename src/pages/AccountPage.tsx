@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { useAuth } from "../lib/AuthContext";
 import { useCart } from "../lib/CartContext";
-import { apiGet } from "../lib/userApi";
+import { getMyOrders } from "../lib/userApi";
 import { Package, ChevronRight, LogOut, ArrowLeft, Heart, ShoppingBag, X, Check } from "lucide-react";
 import CartDrawer from "../components/CartDrawer";
 
@@ -53,8 +53,8 @@ export default function AccountPage() {
       return;
     }
     if (user) {
-      apiGet<{ orders: Order[] }>("/orders/my")
-        .then((data) => setOrders(data.orders))
+      getMyOrders()
+        .then(setOrders)
         .catch(() => {})
         .finally(() => setOrdersLoading(false));
     }

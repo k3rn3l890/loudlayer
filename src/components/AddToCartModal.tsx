@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { X, Minus, Plus, ShoppingBag } from "lucide-react";
 import type { Product } from "../types";
 import { useCart } from "../lib/CartContext";
+import { PLACEHOLDER_IMAGE } from "../lib/supabase";
 
 const SIZES = ["S", "M", "L", "XL"] as const;
 
@@ -79,7 +80,7 @@ export default function AddToCartModal({ product, onClose }: AddToCartModalProps
                 {/* IMAGE PANEL */}
                 <div className="relative bg-neutral-100 md:min-h-[520px]">
                   <img
-                    src={product.image || "/placeholder-product.svg"}
+                    src={product.image || PLACEHOLDER_IMAGE}
                     alt={product.name}
                     className="w-full h-full object-cover"
                     referrerPolicy="no-referrer"

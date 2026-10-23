@@ -3,31 +3,12 @@ import { Link } from "react-router-dom";
 import { ShoppingCart, Info, Heart, X, ExternalLink } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Product } from "../types";
-import { apiGet } from "../lib/userApi";
+import { getProducts } from "../lib/userApi";
+import { mapDbProduct } from "../lib/productMapper";
 
 interface MomentsSectionProps {
   onAddToCart: (p: Product, size: string) => void;
   onAddToWishlist: (p: Product) => void;
-}
-
-function mapDbProduct(p: any): Product {
-  let tags: string[] = [];
-  if (Array.isArray(p.tags)) tags = p.tags;
-  else if (typeof p.tags === "string") try { tags = JSON.parse(p.tags); } catch {}
-  return {
-    id: String(p.id),
-    slug: p.slug || "",
-    name: p.name,
-    price: p.price,
-    discountPrice: p.discount_price ?? undefined,
-    discountPercentage: p.discount_percentage ?? undefined,
-    image: p.image || "/placeholder-product.svg",
-    category: p.category || "",
-    code: p.code ?? undefined,
-    tags,
-    description: p.description ?? undefined,
-    stock: p.stock ?? 0,
-  };
 }
 
 export default function MomentsSection({
@@ -40,8 +21,8 @@ export default function MomentsSection({
   const sizes = ["S", "M", "L", "XL"];
 
   useEffect(() => {
-    apiGet<{ products: any[] }>("/products?visible=1")
-      .then((data) => setMomentsProducts(data.products.slice(0, 2).map(mapDbProduct)))
+    getProducts({ visible: true })
+      .then((products) => setMomentsProducts(products.slice(0, 2)))
       .catch(() => {});
   }, []);
 

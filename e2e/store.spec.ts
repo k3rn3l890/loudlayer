@@ -1,112 +1,87 @@
 import { test, expect } from "@playwright/test";
 
-test.describe("Store Homepage", () => {
-  test("loads the store page", async ({ page }) => {
+const adminEmail = process.env.E2E_ADMIN_EMAIL || "";
+const adminPassword = process.env.E2E_ADMIN_PASSWORD || "";
+const hasAdminCredentials = Boolean(adminEmail && adminPassword);
+
+test.describe("Storefront", () => {
+  test("loads the homepage", async ({ page }) => {
     await page.goto("/");
     await expect(page).toHaveTitle(/LOUDLAYER/i);
+    await expect(page.getByText("LOUDLAYER").first()).toBeVisible();
   });
 
-  test("displays products", async ({ page }) => {
+  test("displays store products from Supabase", async ({ page }) => {
+    const productsResponse = page.waitForResponse(
+      (response) => response.url().includes("/rest/v1/products") && response.status() === 200
+    );
+
     await page.goto("/store");
-    // Wait for products to load
-    await page.waitForSelector("[data-testid='product-card']", { timeout: 10000 }).catch(() => {
-      // If no data-testid, look for product images or names
-    });
-    // Check that some product content is visible
-    const content = await page.textContent("body");
-    expect(content).toBeTruthy();
+    await productsResponse;
+
+    await expect(page.locator('a[href*="/products/"]').first()).toBeVisible({ timeout: 15000 });
+  });
+
+  test("opens a product detail page", async ({ page }) => {
+    await page.goto("/store");
+
+    const firstProduct = page.locator('a[href*="/products/"]').first();
+    await expect(firstProduct).toBeVisible({ timeout: 15000 });
+    await firstProduct.click();
+
+    await expect(page).toHaveURL(/\/products\/[^/]+/);
+    await expect(page.getByText(/add to bag|add to cart/i).first()).toBeVisible();
   });
 });
 
-test.describe("Authentication Flow", () => {
-  test("login page loads", async ({ page }) => {
+test.describe("Customer authentication", () => {
+  test("login page renders the form", async ({ page }) => {
     await page.goto("/login");
     await expect(page.locator("input[type='email'], input[name='email']")).toBeVisible();
     await expect(page.locator("input[type='password']")).toBeVisible();
   });
 
-  test("can login with admin credentials", async ({ page }) => {
+  test("rejects a wrong password", async ({ page }) => {
     await page.goto("/login");
+    await page.locator("input[type='email'], input[name='email']").fill(adminEmail || "nobody@example.com");
+    await page.locator("input[type='password']").fill("definitely-wrong");
+    await page.locator("button[type='submit']").click();
 
-    // Fill in login form
-    const emailInput = page.locator("input[type='email'], input[name='email']");
-    const passwordInput = page.locator("input[type='password']");
-
-    await emailInput.fill("loudlayer000@gmail.com");
-    await passwordInput.fill("12Flowers$$$");
-
-    // Submit
-    const submitButton = page.locator("button[type='submit']");
-    await submitButton.click();
-
-    // Wait for redirect or dashboard
-    await page.waitForURL(/\/(admin|dashboard)/, { timeout: 10000 }).catch(() => {
-      // May stay on login page if there's an issue
-    });
-  });
-
-  test("rejects wrong password", async ({ page }) => {
-    await page.goto("/login");
-
-    const emailInput = page.locator("input[type='email'], input[name='email']");
-    const passwordInput = page.locator("input[type='password']");
-
-    await emailInput.fill("loudlayer000@gmail.com");
-    await passwordInput.fill("wrongpassword");
-
-    const submitButton = page.locator("button[type='submit']");
-    await submitButton.click();
-
-    // Should show an error message
-    await page.waitForTimeout(2000);
-    const bodyText = await page.textContent("body");
-    expect(bodyText).toMatch(/invalid|error|wrong/i);
+    await expect(page.getByText(/invalid email or password/i)).toBeVisible({ timeout: 15000 });
   });
 });
 
-test.describe("Admin Dashboard", () => {
-  test("redirects to login when not authenticated", async ({ page }) => {
+test.describe("Admin dashboard", () => {
+  test("redirects unauthenticated visitors to the admin login", async ({ page }) => {
     await page.goto("/admin");
-    // Should either show login form or redirect
-    await page.waitForTimeout(2000);
-    const url = page.url();
-    // Could be on login page or admin page depending on auth state
-    expect(url).toBeTruthy();
+    await expect(page).toHaveURL(/\/admin\/login/, { timeout: 15000 });
+  });
+
+  test("signs an admin in", async ({ page }) => {
+    test.skip(!hasAdminCredentials, "Set E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD to run this test.");
+
+    await page.goto("/admin/login");
+    await page.locator("input[type='email'], input[name='email']").fill(adminEmail);
+    await page.locator("input[type='password']").fill(adminPassword);
+    await page.locator("button[type='submit']").click();
+
+    await expect(page).toHaveURL(/\/admin$/, { timeout: 20000 });
+    await expect(page.getByText(/dashboard/i).first()).toBeVisible();
   });
 });
 
-test.describe("Product Store", () => {
-  test("store page shows products", async ({ page }) => {
-    await page.goto("/store");
-    await page.waitForTimeout(3000);
-    const content = await page.textContent("body");
-    expect(content).toBeTruthy();
-    // Store should have some product-related content
-    expect(content!.length).toBeGreaterThan(100);
-  });
+test.describe("Supabase REST health", () => {
+  test("serves products with the anon key", async ({ request }) => {
+    const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+    const key = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+    expect(url, "SUPABASE_URL is required for e2e health checks").toBeTruthy();
+    expect(key, "SUPABASE_ANON_KEY is required for e2e health checks").toBeTruthy();
 
-  test("product categories are filterable", async ({ page }) => {
-    await page.goto("/store");
-    await page.waitForTimeout(3000);
-    // Look for category filter buttons
-    const body = await page.textContent("body");
-    expect(body).toBeTruthy();
-  });
-});
+    const response = await request.get(`${url}/rest/v1/products?select=id&limit=1`, {
+      headers: { apikey: key!, Authorization: `Bearer ${key}` },
+    });
 
-test.describe("API Health", () => {
-  test("backend health endpoint responds", async ({ request }) => {
-    const response = await request.get("http://localhost:3001/api/health");
     expect(response.ok()).toBeTruthy();
-    const data = await response.json();
-    expect(data.status).toBe("ok");
-  });
-
-  test("products API returns data", async ({ request }) => {
-    const response = await request.get("http://localhost:3001/api/products?visible=1");
-    expect(response.ok()).toBeTruthy();
-    const data = await response.json();
-    expect(data.products).toBeDefined();
-    expect(data.products.length).toBeGreaterThan(0);
+    expect(Array.isArray(await response.json())).toBe(true);
   });
 });

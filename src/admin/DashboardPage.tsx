@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api } from "./api";
+import { adminApi } from "./api";
 import { Package, ShoppingCart, DollarSign, Users } from "lucide-react";
 
 interface Stats {
@@ -25,7 +25,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.get<{ stats: Stats; recentOrders: Order[] }>("/dashboard/stats")
+    adminApi.getStats()
       .then((data) => {
         setStats(data.stats);
         setRecentOrders(data.recentOrders);

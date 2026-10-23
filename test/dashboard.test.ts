@@ -1,48 +1,54 @@
-import { describe, it, expect } from "vitest";
-import request from "supertest";
-import { createTestApp } from "./helpers";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import {
+  anon,
+  cleanup,
+  createTestUser,
+  type TestUser,
+} from "./supabase-helpers";
 
-const app = createTestApp();
+let admin: TestUser;
+let customer: TestUser;
 
-async function getAdminToken(): Promise<string> {
-  const res = await request(app)
-    .post("/api/auth/login")
-    .send({ email: "loudlayer000@gmail.com", password: "12Flowers$$$" });
-  return res.body.token;
-}
+beforeAll(async () => {
+  admin = await createTestUser({ role: "admin" });
+  customer = await createTestUser();
+});
 
-describe("Dashboard Routes", () => {
-  describe("GET /api/dashboard/stats", () => {
-    it("returns stats as admin", async () => {
-      const token = await getAdminToken();
-      const res = await request(app)
-        .get("/api/dashboard/stats")
-        .set("Authorization", `Bearer ${token}`);
-      expect(res.status).toBe(200);
-      expect(res.body.stats).toBeDefined();
-      expect(typeof res.body.stats.totalProducts).toBe("number");
-      expect(typeof res.body.stats.totalOrders).toBe("number");
-      expect(typeof res.body.stats.totalRevenue).toBe("number");
-      expect(typeof res.body.stats.totalCustomers).toBe("number");
-      expect(Array.isArray(res.body.stats.ordersByStatus)).toBe(true);
-      expect(Array.isArray(res.body.recentOrders)).toBe(true);
-    });
+afterAll(async () => {
+  await cleanup({ userIds: [admin.id, customer.id] });
+});
 
-    it("rejects unauthenticated request", async () => {
-      const res = await request(app).get("/api/dashboard/stats");
-      expect(res.status).toBe(401);
-    });
+describe("Admin dashboard RPC", () => {
+  it("returns aggregate stats and recent orders to an admin", async () => {
+    const { data, error } = await admin.client.rpc("admin_stats");
 
-    it("rejects customer token", async () => {
-      const custRes = await request(app)
-        .post("/api/auth/register")
-        .send({ email: `dash-test-${Date.now()}@test.com`, password: "password123" });
-      const token = custRes.body.token;
+    expect(error).toBeNull();
+    expect(data.stats).toEqual(
+      expect.objectContaining({
+        totalProducts: expect.any(Number),
+        totalOrders: expect.any(Number),
+        totalRevenue: expect.anything(),
+        totalCustomers: expect.any(Number),
+        ordersByStatus: expect.any(Array),
+      })
+    );
+    expect(Array.isArray(data.recentOrders)).toBe(true);
+    expect(data.recentOrders.length).toBeLessThanOrEqual(5);
 
-      const res = await request(app)
-        .get("/api/dashboard/stats")
-        .set("Authorization", `Bearer ${token}`);
-      expect(res.status).toBe(403);
-    });
+    for (const row of data.stats.ordersByStatus) {
+      expect(row).toEqual(
+        expect.objectContaining({ status: expect.any(String), count: expect.any(Number) })
+      );
+    }
+  });
+
+  it("rejects customers", async () => {
+    const { error } = await customer.client.rpc("admin_stats");
+    expect(error?.message).toContain("Admin access required");
+  });
+
+  it("rejects anonymous callers", async () => {
+    const { error } = await anon.rpc("admin_stats");
+    expect(error).not.toBeNull();
   });
 });

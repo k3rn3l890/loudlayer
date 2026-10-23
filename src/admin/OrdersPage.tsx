@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { api } from "./api";
+import { Link, useNavigate } from "react-router-dom";
+import { adminApi } from "./api";
 
 interface Order {
   id: number;
@@ -23,6 +23,7 @@ const statusColors: Record<string, string> = {
 };
 
 export default function OrdersPage() {
+  const navigate = useNavigate();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
@@ -30,11 +31,8 @@ export default function OrdersPage() {
 
   const fetchOrders = () => {
     setLoading(true);
-    const params = new URLSearchParams();
-    if (filter !== "all") params.set("status", filter);
-    if (search) params.set("search", search);
-    api.get<{ orders: Order[] }>(`/orders?${params.toString()}`)
-      .then((data) => setOrders(data.orders))
+    adminApi.getOrders({ status: filter, search })
+      .then(setOrders)
       .catch(console.error)
       .finally(() => setLoading(false));
   };
@@ -94,7 +92,7 @@ export default function OrdersPage() {
               </thead>
               <tbody>
                 {orders.map((order) => (
-                  <tr key={order.id} className="border-b border-neutral-50 hover:bg-neutral-50 transition cursor-pointer" onClick={() => window.location.href = `/admin/orders/${order.id}`}>
+                  <tr key={order.id} className="border-b border-neutral-50 hover:bg-neutral-50 transition cursor-pointer" onClick={() => navigate(`/admin/orders/${order.id}`)}>
                     <td className="px-3 sm:px-5 py-2 sm:py-3 font-mono text-[11px] sm:text-xs font-bold text-neutral-700 whitespace-nowrap">{order.order_number}</td>
                     <td className="px-3 sm:px-5 py-2 sm:py-3 text-xs sm:text-sm text-neutral-600 truncate max-w-[80px] sm:max-w-none">{order.customer_name || "—"}</td>
                     <td className="px-3 sm:px-5 py-2 sm:py-3 text-[11px] sm:text-xs text-neutral-400 font-mono truncate max-w-[100px] sm:max-w-none">{order.customer_email || "—"}</td>

@@ -1,140 +1,258 @@
-import { describe, it, expect } from "vitest";
-import request from "supertest";
-import { createTestApp } from "./helpers";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import {
+  anon,
+  cleanup,
+  createTestProduct,
+  createTestUser,
+  service,
+  type TestUser,
+} from "./supabase-helpers";
 
-const app = createTestApp();
+let admin: TestUser;
+let customer: TestUser;
+let otherCustomer: TestUser;
+const orderIds: number[] = [];
+const productIds: number[] = [];
 
-async function getAdminToken(): Promise<string> {
-  const res = await request(app)
-    .post("/api/auth/login")
-    .send({ email: "loudlayer000@gmail.com", password: "12Flowers$$$" });
-  return res.body.token;
+beforeAll(async () => {
+  admin = await createTestUser({ role: "admin" });
+  customer = await createTestUser({ name: "Order Tester" });
+  otherCustomer = await createTestUser({ name: "Other Customer" });
+});
+
+afterAll(async () => {
+  await cleanup({
+    userIds: [admin.id, customer.id, otherCustomer.id],
+    productIds,
+    orderIds,
+  });
+});
+
+async function createProduct(stock = 5) {
+  const product = await createTestProduct({ stock });
+  productIds.push(product.id);
+  return product;
 }
 
-async function getCustomerToken(): Promise<string> {
-  const res = await request(app)
-    .post("/api/auth/register")
-    .send({ email: `order-test-${Date.now()}@test.com`, password: "password123", name: "Order Tester" });
-  return res.body.token;
+async function placeOrder(user: TestUser, productId: number, quantity = 1) {
+  const { data, error } = await user.client.rpc("create_order", {
+    p_items: [{ product_id: productId, name: "Test Product", quantity, size: "M" }],
+    p_customer_name: "Order Tester",
+    p_customer_phone: "0240000000",
+    p_shipping_address: "123 Test Street",
+    p_notes: "Leave at the gate",
+  });
+
+  expect(error).toBeNull();
+  if (data?.order?.id) orderIds.push(data.order.id);
+  return data;
 }
 
-describe("Order Routes", () => {
-  describe("GET /api/orders", () => {
-    it("returns orders as admin", async () => {
-      const token = await getAdminToken();
-      const res = await request(app)
-        .get("/api/orders")
-        .set("Authorization", `Bearer ${token}`);
-      expect(res.status).toBe(200);
-      expect(res.body.orders).toBeDefined();
-      expect(Array.isArray(res.body.orders)).toBe(true);
-    });
+describe("Orders (create_order RPC)", () => {
+  it("creates an order and its items for a signed-in customer", async () => {
+    const product = await createProduct(5);
 
-    it("rejects unauthenticated request", async () => {
-      const res = await request(app).get("/api/orders");
-      expect(res.status).toBe(401);
-    });
+    const result = await placeOrder(customer, product.id, 2);
 
-    it("filters by status", async () => {
-      const token = await getAdminToken();
-      const res = await request(app)
-        .get("/api/orders?status=pending")
-        .set("Authorization", `Bearer ${token}`);
-      expect(res.status).toBe(200);
-      for (const o of res.body.orders) {
-        expect(o.status).toBe("pending");
-      }
+    expect(result.success).toBe(true);
+    expect(result.order).toMatchObject({
+      user_id: customer.id,
+      customer_name: "Order Tester",
+      customer_email: customer.email,
+      shipping_address: "123 Test Street",
+      status: "pending",
+      total: 39.98,
+      notes: "Leave at the gate",
     });
+    expect(result.order.order_number).toMatch(/^ORD-/);
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]).toMatchObject({
+      product_id: product.id,
+      product_name: "Test Product",
+      quantity: 2,
+      size: "M",
+    });
+    expect(Number(result.items[0].product_price)).toBe(19.99);
   });
 
-  describe("POST /api/orders", () => {
-    it("creates an order as customer", async () => {
-      const token = await getCustomerToken();
-      const products = await request(app).get("/api/products?visible=1");
-      const product = products.body.products[0];
+  it("decrements product stock", async () => {
+    const product = await createProduct(5);
 
-      const res = await request(app)
-        .post("/api/orders")
-        .set("Authorization", `Bearer ${token}`)
-        .send({
-          items: [{ product_id: product.id, name: product.name, price: product.price, quantity: 1 }],
-          customer_name: "Order Tester",
-          shipping_address: "123 Test St",
-        });
-      expect(res.status).toBe(200);
-      expect(res.body.order).toBeDefined();
-      expect(res.body.order.order_number).toBeDefined();
-      expect(res.body.items.length).toBe(1);
-    });
+    await placeOrder(customer, product.id, 3);
 
-    it("rejects empty items", async () => {
-      const token = await getCustomerToken();
-      const res = await request(app)
-        .post("/api/orders")
-        .set("Authorization", `Bearer ${token}`)
-        .send({ items: [] });
-      expect(res.status).toBe(400);
-    });
-
-    it("rejects without auth", async () => {
-      const res = await request(app)
-        .post("/api/orders")
-        .send({ items: [{ product_id: 1, price: 10, quantity: 1 }] });
-      expect(res.status).toBe(401);
-    });
+    const { data } = await service
+      .from("products")
+      .select("stock")
+      .eq("id", product.id)
+      .single();
+    expect(data?.stock).toBe(2);
   });
 
-  describe("GET /api/orders/:id", () => {
-    it("returns order details as admin", async () => {
-      const token = await getAdminToken();
-      const listRes = await request(app)
-        .get("/api/orders")
-        .set("Authorization", `Bearer ${token}`);
+  it("skips items that exceed available stock", async () => {
+    const product = await createProduct(1);
 
-      if (listRes.body.orders.length > 0) {
-        const orderId = listRes.body.orders[0].id;
-        const res = await request(app)
-          .get(`/api/orders/${orderId}`)
-          .set("Authorization", `Bearer ${token}`);
-        expect(res.status).toBe(200);
-        expect(res.body.order.id).toBe(orderId);
-        expect(res.body.items).toBeDefined();
-      }
-    });
+    const result = await placeOrder(customer, product.id, 2);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("All items are out of stock");
+    expect(result.skipped_items).toEqual([
+      { name: "Test Product", reason: "Only 1 available" },
+    ]);
+
+    const { data } = await service.from("products").select("stock").eq("id", product.id).single();
+    expect(data?.stock).toBe(1);
   });
 
-  describe("PATCH /api/orders/:id/status", () => {
-    it("updates order status as admin", async () => {
-      const token = await getAdminToken();
-      const listRes = await request(app)
-        .get("/api/orders?status=pending")
-        .set("Authorization", `Bearer ${token}`);
-
-      if (listRes.body.orders.length > 0) {
-        const orderId = listRes.body.orders[0].id;
-        const res = await request(app)
-          .patch(`/api/orders/${orderId}/status`)
-          .set("Authorization", `Bearer ${token}`)
-          .send({ status: "processing" });
-        expect(res.status).toBe(200);
-        expect(res.body.order.status).toBe("processing");
-      }
+  it("skips unknown products", async () => {
+    const { data, error } = await customer.client.rpc("create_order", {
+      p_items: [{ product_id: 999999999, name: "Ghost Product", quantity: 1, size: "M" }],
     });
 
-    it("rejects invalid status", async () => {
-      const token = await getAdminToken();
-      const listRes = await request(app)
-        .get("/api/orders")
-        .set("Authorization", `Bearer ${token}`);
+    expect(error).toBeNull();
+    expect(data.success).toBe(false);
+    expect(data.skipped_items).toEqual([{ name: "Ghost Product", reason: "Product not found" }]);
+  });
 
-      if (listRes.body.orders.length > 0) {
-        const orderId = listRes.body.orders[0].id;
-        const res = await request(app)
-          .patch(`/api/orders/${orderId}/status`)
-          .set("Authorization", `Bearer ${token}`)
-          .send({ status: "invalid_status" });
-        expect(res.status).toBe(400);
-      }
+  it("rejects empty carts", async () => {
+    const { data, error } = await customer.client.rpc("create_order", { p_items: [] });
+
+    expect(error).toBeNull();
+    expect(data).toMatchObject({ success: false, error: "All items are out of stock" });
+  });
+
+  it("rejects anonymous callers", async () => {
+    const product = await createProduct();
+
+    const { error } = await anon.rpc("create_order", {
+      p_items: [{ product_id: product.id, quantity: 1 }],
     });
+
+    expect(error).not.toBeNull();
+  });
+});
+
+describe("Orders (RLS)", () => {
+  it("shows customers only their own orders", async () => {
+    const product = await createProduct();
+    const result = await placeOrder(customer, product.id, 1);
+    const orderId = result.order.id;
+
+    const { data: ownOrders } = await customer.client
+      .from("orders")
+      .select("id")
+      .eq("id", orderId);
+    expect(ownOrders?.map((row) => row.id)).toContain(orderId);
+
+    const { data: otherOrders } = await otherCustomer.client
+      .from("orders")
+      .select("id")
+      .eq("id", orderId);
+    expect(otherOrders).toEqual([]);
+
+    const { data: otherItems } = await otherCustomer.client
+      .from("order_items")
+      .select("id")
+      .eq("order_id", orderId);
+    expect(otherItems).toEqual([]);
+  });
+
+  it("does not let customers change an order status directly", async () => {
+    const product = await createProduct();
+    const result = await placeOrder(customer, product.id, 1);
+
+    const { data } = await customer.client
+      .from("orders")
+      .update({ status: "delivered" })
+      .eq("id", result.order.id)
+      .select("id, status");
+    expect(data).toEqual([]);
+
+    const { data: stored } = await service
+      .from("orders")
+      .select("status")
+      .eq("id", result.order.id)
+      .single();
+    expect(stored?.status).toBe("pending");
+  });
+});
+
+describe("admin_update_order_status RPC", () => {
+  it("lets an admin move an order through statuses", async () => {
+    const product = await createProduct();
+    const result = await placeOrder(customer, product.id, 1);
+
+    const { data, error } = await admin.client.rpc("admin_update_order_status", {
+      p_order_id: result.order.id,
+      p_status: "shipped",
+    });
+
+    expect(error).toBeNull();
+    expect(data.status).toBe("shipped");
+  });
+
+  it("rejects invalid statuses", async () => {
+    const product = await createProduct();
+    const result = await placeOrder(customer, product.id, 1);
+
+    const { error } = await admin.client.rpc("admin_update_order_status", {
+      p_order_id: result.order.id,
+      p_status: "lost_in_transit",
+    });
+
+    expect(error?.message).toContain("Invalid status");
+  });
+
+  it("rejects customers calling it", async () => {
+    const product = await createProduct();
+    const result = await placeOrder(customer, product.id, 1);
+
+    const { error } = await customer.client.rpc("admin_update_order_status", {
+      p_order_id: result.order.id,
+      p_status: "shipped",
+    });
+
+    expect(error?.message).toContain("Admin access required");
+  });
+
+  it("restocks products when an order is cancelled", async () => {
+    const product = await createProduct(4);
+    const result = await placeOrder(customer, product.id, 3);
+
+    const { data: afterOrder } = await service
+      .from("products")
+      .select("stock")
+      .eq("id", product.id)
+      .single();
+    expect(afterOrder?.stock).toBe(1);
+
+    const { error } = await admin.client.rpc("admin_update_order_status", {
+      p_order_id: result.order.id,
+      p_status: "cancelled",
+    });
+    expect(error).toBeNull();
+
+    const { data: afterCancel } = await service
+      .from("products")
+      .select("stock")
+      .eq("id", product.id)
+      .single();
+    expect(afterCancel?.stock).toBe(4);
+  });
+
+  it("does not restock twice when cancelling an already cancelled order", async () => {
+    const product = await createProduct(4);
+    const result = await placeOrder(customer, product.id, 2);
+
+    await admin.client.rpc("admin_update_order_status", {
+      p_order_id: result.order.id,
+      p_status: "cancelled",
+    });
+    await admin.client.rpc("admin_update_order_status", {
+      p_order_id: result.order.id,
+      p_status: "cancelled",
+    });
+
+    const { data } = await service.from("products").select("stock").eq("id", product.id).single();
+    expect(data?.stock).toBe(4);
   });
 });

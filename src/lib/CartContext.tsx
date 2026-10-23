@@ -1,8 +1,9 @@
 import { createContext, useContext, useState, useEffect, useRef, type ReactNode } from "react";
 import { Product, CartItem } from "../types";
 import { useAuth } from "./AuthContext";
+import { supabase } from "./supabase";
+import { mapDbProduct } from "./productMapper";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 const GUEST_CART_KEY = "loudlayer_guest_cart";
 const GUEST_WISHLIST_KEY = "loudlayer_guest_wishlist";
 
@@ -36,6 +37,42 @@ function saveToStorage<T>(key: string, data: T) {
   } catch {}
 }
 
+function numericProductId(id: string | number): number {
+  if (typeof id === "number") return id;
+  const parsed = Number(String(id).replace(/\D/g, ""));
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+function rowToCartItem(row: any): CartItem {
+  return {
+    product: mapDbProduct(row.product_data),
+    quantity: row.quantity,
+    selectedSize: row.size || undefined,
+  };
+}
+
+function rowToWishlistItem(row: any): Product {
+  return mapDbProduct(row.product_data);
+}
+
+async function fetchServerCart(): Promise<CartItem[] | null> {
+  const { data, error } = await supabase
+    .from("cart_items")
+    .select("*")
+    .order("created_at", { ascending: true });
+  if (error) return null;
+  return (data || []).map(rowToCartItem);
+}
+
+async function fetchServerWishlist(): Promise<Product[] | null> {
+  const { data, error } = await supabase
+    .from("wishlist_items")
+    .select("*")
+    .order("created_at", { ascending: true });
+  if (error) return null;
+  return (data || []).map(rowToWishlistItem);
+}
+
 export function CartProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const userId = user?.id ?? null;
@@ -43,9 +80,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const loadingServer = useRef(false);
   const ready = useRef(false);
   const mounted = useRef(false);
+  const syncChain = useRef<Promise<unknown>>(Promise.resolve());
 
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [wishlist, setWishlist] = useState<Product[]>([]);
+
+  // Serialize server writes so rapid cart updates cannot land out of order.
+  const enqueue = (fn: () => PromiseLike<unknown>) => {
+    syncChain.current = syncChain.current.then(fn).catch(() => {});
+  };
 
   // Load data when user ID changes (login / logout / initial mount)
   useEffect(() => {
@@ -55,67 +98,65 @@ export function CartProvider({ children }: { children: ReactNode }) {
         loadingServer.current = true;
         ready.current = false;
 
-        // Migrate guest items to server
-        const gCart = loadFromStorage<CartItem[]>(GUEST_CART_KEY, []);
-        const gWish = loadFromStorage<Product[]>(GUEST_WISHLIST_KEY, []);
-        if (gCart.length > 0 || gWish.length > 0) {
-          try {
-            // Sync cart items
-            if (gCart.length > 0) {
-              await fetch(`${API_URL}/api/cart`, {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                credentials: "include",
-                body: JSON.stringify({
-                  items: gCart.map((item) => ({
-                    product: { id: parseInt(item.product.id.replace(/\D/g, "")) || 0, price: item.product.price },
-                    quantity: item.quantity,
-                    selectedSize: item.selectedSize || "",
-                  })),
-                }),
+        const guestCart = loadFromStorage<CartItem[]>(GUEST_CART_KEY, []);
+        const guestWishlist = loadFromStorage<Product[]>(GUEST_WISHLIST_KEY, []);
+
+        // Merge the browsing-session cart into the account's saved cart.
+        if (guestCart.length > 0) {
+          const serverCart = (await fetchServerCart()) || [];
+          const merged = new Map<string, { product_id: number; quantity: number; size: string; stock: number }>();
+
+          for (const item of [...serverCart, ...guestCart]) {
+            const productId = numericProductId(item.product.id);
+            if (!productId) continue;
+            const size = item.selectedSize || "";
+            const key = `${productId}::${size}`;
+            const existing = merged.get(key);
+            const stock = item.product.stock ?? Number.MAX_SAFE_INTEGER;
+            if (existing) {
+              existing.quantity = Math.min(existing.quantity + item.quantity, stock);
+              existing.stock = stock;
+            } else {
+              merged.set(key, {
+                product_id: productId,
+                quantity: Math.min(item.quantity, stock),
+                size,
+                stock,
               });
             }
-            // Sync wishlist items
-            if (gWish.length > 0) {
-              await fetch(`${API_URL}/api/wishlist`, {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                credentials: "include",
-                body: JSON.stringify({ items: gWish.map((item) => ({ id: parseInt(item.id.replace(/\D/g, "")) || 0, ...item })) }),
-              });
-            }
-          } catch {}
+          }
+
+          await supabase.rpc("replace_user_cart", {
+            p_items: Array.from(merged.values()).map(({ product_id, quantity, size }) => ({
+              product_id,
+              quantity,
+              size,
+            })),
+          });
+        }
+
+        if (guestWishlist.length > 0) {
+          const ids = Array.from(
+            new Set(
+              guestWishlist
+                .map((item) => numericProductId(item.id))
+                .filter((id) => id > 0)
+            )
+          );
+          await supabase.rpc("replace_user_wishlist", { p_product_ids: ids });
+        }
+
+        const [cart, wish] = await Promise.all([fetchServerCart(), fetchServerWishlist()]);
+        setCartItems(cart ?? []);
+        setWishlist(wish ?? []);
+
+        if (guestCart.length > 0 || guestWishlist.length > 0) {
           localStorage.removeItem(GUEST_CART_KEY);
           localStorage.removeItem(GUEST_WISHLIST_KEY);
         }
 
-        try {
-          const [cartRes, wishRes] = await Promise.all([
-            fetch(`${API_URL}/api/cart`, { credentials: "include" }),
-            fetch(`${API_URL}/api/wishlist`, { credentials: "include" }),
-          ]);
-
-          if (cartRes.ok) {
-            const cartData = await cartRes.json();
-            setCartItems(
-              cartData.items.map((i: any) => ({
-                product: typeof i.product_data === "string" ? JSON.parse(i.product_data) : i.product_data,
-                quantity: i.quantity,
-                selectedSize: i.size || undefined,
-              }))
-            );
-          }
-          if (wishRes.ok) {
-            const wishData = await wishRes.json();
-            setWishlist(wishData.items.map((i: any) => typeof i.product_data === "string" ? JSON.parse(i.product_data) : i.product_data));
-          }
-        } catch {
-          setCartItems([]);
-          setWishlist([]);
-        } finally {
-          loadingServer.current = false;
-          ready.current = true;
-        }
+        loadingServer.current = false;
+        ready.current = true;
       } else {
         setCartItems(loadFromStorage<CartItem[]>(GUEST_CART_KEY, []));
         setWishlist(loadFromStorage<Product[]>(GUEST_WISHLIST_KEY, []));
@@ -141,41 +182,30 @@ export function CartProvider({ children }: { children: ReactNode }) {
     saveToStorage(GUEST_WISHLIST_KEY, wishlist);
   }, [wishlist, userId]);
 
-  // Sync to server when logged in and state changes
+  // Sync to Supabase when logged in and state changes
   useEffect(() => {
     if (userId === null || loadingServer.current || !ready.current || !mounted.current) return;
 
-    const syncCart = async () => {
-      try {
-        await fetch(`${API_URL}/api/cart`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            items: cartItems.map((item) => ({
-              product: { id: parseInt(item.product.id.replace(/\D/g, "")) || 0, price: item.product.price },
-              quantity: item.quantity,
-              selectedSize: item.selectedSize || "",
-            })),
-          }),
-        });
-      } catch {}
-    };
+    const payload = cartItems
+      .map((item) => ({
+        product_id: numericProductId(item.product.id),
+        quantity: item.quantity,
+        size: item.selectedSize || "",
+      }))
+      .filter((item) => item.product_id > 0);
 
-    const syncWishlist = async () => {
-      try {
-        await fetch(`${API_URL}/api/wishlist`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ items: wishlist.map((item) => ({ id: parseInt(item.id.replace(/\D/g, "")) || 0, ...item })) }),
-        });
-      } catch {}
-    };
+    enqueue(() => supabase.rpc("replace_user_cart", { p_items: payload }));
+  }, [cartItems, userId]);
 
-    syncCart();
-    syncWishlist();
-  }, [cartItems, wishlist, userId]);
+  useEffect(() => {
+    if (userId === null || loadingServer.current || !ready.current || !mounted.current) return;
+
+    const ids = wishlist
+      .map((item) => numericProductId(item.id))
+      .filter((id) => id > 0);
+
+    enqueue(() => supabase.rpc("replace_user_wishlist", { p_product_ids: ids }));
+  }, [wishlist, userId]);
 
   const cartCount = cartItems.reduce((acc, it) => acc + it.quantity, 0);
 

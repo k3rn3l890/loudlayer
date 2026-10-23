@@ -15,16 +15,10 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: "npm run dev:server",
-      url: "http://localhost:3001/api/health",
-      reuseExistingServer: true,
-      timeout: 30000,
-    },
-    {
       command: "npm run dev:client",
       url: "http://localhost:3000",
       reuseExistingServer: true,
-      timeout: 30000,
+      timeout: 60000,
     },
   ],
 });

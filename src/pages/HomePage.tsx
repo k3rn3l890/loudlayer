@@ -13,7 +13,7 @@ import Footer from "../components/Footer";
 import CartDrawer from "../components/CartDrawer";
 import { useAuth } from "../lib/AuthContext";
 import { useCart } from "../lib/CartContext";
-import { apiPost } from "../lib/userApi";
+import { createOrder, notifyOrderEmails } from "../lib/userApi";
 import { Product, CartItem } from "../types";
 import { Heart, Sparkles, X, Check, ShoppingBag } from "lucide-react";
 
@@ -103,7 +103,8 @@ export default function HomePage() {
       shipping_address: address,
     };
     try {
-      await apiPost("/orders", payload);
+      const { order } = await createOrder(payload);
+      void notifyOrderEmails(Number(order.id), "created");
       clearCart();
       triggerToast("Order placed successfully!", "success");
     } catch (err: any) {

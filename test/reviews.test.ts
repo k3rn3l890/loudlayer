@@ -1,81 +1,150 @@
-import { describe, it, expect } from "vitest";
-import request from "supertest";
-import { createTestApp } from "./helpers";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import {
+  anon,
+  cleanup,
+  createTestProduct,
+  createTestUser,
+  service,
+  type TestUser,
+} from "./supabase-helpers";
 
-const app = createTestApp();
+let first: TestUser;
+let second: TestUser;
+const productIds: number[] = [];
 
-async function getAdminToken(): Promise<string> {
-  const res = await request(app)
-    .post("/api/auth/login")
-    .send({ email: "loudlayer000@gmail.com", password: "12Flowers$$$" });
-  return res.body.token;
+beforeAll(async () => {
+  first = await createTestUser({ name: "First Reviewer" });
+  second = await createTestUser({ name: "Second Reviewer" });
+});
+
+afterAll(async () => {
+  await cleanup({ userIds: [first.id, second.id], productIds });
+});
+
+async function product() {
+  const row = await createTestProduct();
+  productIds.push(row.id);
+  return row;
 }
 
-describe("Review Routes", () => {
-  describe("GET /api/products/:slug/reviews", () => {
-    it("returns reviews for a product", async () => {
-      const products = await request(app).get("/api/products");
-      const slug = products.body.products[0].slug;
+describe("Reviews (Supabase)", () => {
+  it("lets a signed-in customer review a product once", async () => {
+    const jacket = await product();
 
-      const res = await request(app).get(`/api/products/${slug}/reviews`);
-      expect(res.status).toBe(200);
-      expect(res.body.reviews).toBeDefined();
-      expect(res.body.stats).toBeDefined();
-    });
+    const { data, error } = await first.client
+      .from("reviews")
+      .insert({ product_id: jacket.id, user_id: first.id, rating: 5, body: "Excellent jacket" })
+      .select("id, rating, body, user_id")
+      .single();
 
-    it("returns 404 for non-existent product", async () => {
-      const res = await request(app).get("/api/products/nonexistent/reviews");
-      expect(res.status).toBe(404);
-    });
+    expect(error).toBeNull();
+    expect(data).toMatchObject({ rating: 5, body: "Excellent jacket", user_id: first.id });
   });
 
-  describe("POST /api/products/:slug/reviews", () => {
-    it("creates a review as admin", async () => {
-      const token = await getAdminToken();
-      const products = await request(app).get("/api/products");
-      const slug = products.body.products[0].slug;
+  it("rejects a second review by the same customer", async () => {
+    const jacket = await product();
 
-      const res = await request(app)
-        .post(`/api/products/${slug}/reviews`)
-        .set("Authorization", `Bearer ${token}`)
-        .send({ rating: 5, body: "Great product!" });
-      expect(res.status).toBe(201);
-      expect(res.body.review.rating).toBe(5);
-    });
+    await first.client
+      .from("reviews")
+      .insert({ product_id: jacket.id, user_id: first.id, rating: 4, body: "First" });
 
-    it("rejects duplicate review", async () => {
-      const token = await getAdminToken();
-      const products = await request(app).get("/api/products");
-      const slug = products.body.products[0].slug;
+    const { error } = await first.client
+      .from("reviews")
+      .insert({ product_id: jacket.id, user_id: first.id, rating: 5, body: "Second" });
 
-      const res = await request(app)
-        .post(`/api/products/${slug}/reviews`)
-        .set("Authorization", `Bearer ${token}`)
-        .send({ rating: 4, body: "Another review" });
-      expect(res.status).toBe(400);
-      expect(res.body.error).toContain("already reviewed");
-    });
+    expect(error?.code).toBe("23505");
+  });
 
-    it("rejects invalid rating", async () => {
-      const token = await getAdminToken();
-      const products = await request(app).get("/api/products");
-      const slug = products.body.products[0].slug;
+  it("rejects reviews written in another user's name", async () => {
+    const jacket = await product();
 
-      const res = await request(app)
-        .post(`/api/products/${slug}/reviews`)
-        .set("Authorization", `Bearer ${token}`)
-        .send({ rating: 6, body: "Too high" });
-      expect(res.status).toBe(400);
-    });
+    const { error } = await first.client
+      .from("reviews")
+      .insert({ product_id: jacket.id, user_id: second.id, rating: 5, body: "Impersonation" });
 
-    it("rejects unauthenticated review", async () => {
-      const products = await request(app).get("/api/products");
-      const slug = products.body.products[0].slug;
+    expect(error).not.toBeNull();
+    expect(error?.code).toBe("42501");
+  });
 
-      const res = await request(app)
-        .post(`/api/products/${slug}/reviews`)
-        .send({ rating: 5, body: "Anonymous" });
-      expect(res.status).toBe(401);
-    });
+  it("rejects anonymous reviews", async () => {
+    const jacket = await product();
+
+    const { error } = await anon
+      .from("reviews")
+      .insert({ product_id: jacket.id, user_id: first.id, rating: 5, body: "Anon" });
+
+    expect(error).not.toBeNull();
+  });
+
+  it("rejects ratings outside 1-5", async () => {
+    const jacket = await product();
+
+    const { error } = await first.client
+      .from("reviews")
+      .insert({ product_id: jacket.id, user_id: first.id, rating: 6, body: "Too good" });
+
+    expect(error?.code).toBe("23514");
+  });
+
+  it("returns public reviews with names and aggregate stats", async () => {
+    const jacket = await product();
+
+    await first.client
+      .from("reviews")
+      .insert({ product_id: jacket.id, user_id: first.id, rating: 4, body: "Nice" });
+    await second.client
+      .from("reviews")
+      .insert({ product_id: jacket.id, user_id: second.id, rating: 5, body: "Great" });
+
+    const { data, error } = await anon.rpc("get_product_reviews", { p_slug: jacket.slug });
+
+    expect(error).toBeNull();
+    expect(data.stats).toEqual({ count: 2, average: 4.5 });
+    expect(data.reviews).toHaveLength(2);
+    expect(data.reviews.map((review: any) => review.user_name).sort()).toEqual([
+      "First Reviewer",
+      "Second Reviewer",
+    ]);
+    expect(data.reviews[0]).toHaveProperty("created_at");
+  });
+
+  it("returns zeroed stats for an unreviewed product", async () => {
+    const jacket = await product();
+
+    const { data, error } = await anon.rpc("get_product_reviews", { p_slug: jacket.slug });
+
+    expect(error).toBeNull();
+    expect(data).toEqual({ reviews: [], stats: { count: 0, average: 0 } });
+  });
+
+  it("errors for an unknown product slug", async () => {
+    const { error } = await anon.rpc("get_product_reviews", { p_slug: "does-not-exist" });
+
+    expect(error?.message).toContain("Product not found");
+  });
+
+  it("lets admins read reviews but hides profile details from the public", async () => {
+    const jacket = await product();
+    await first.client
+      .from("reviews")
+      .insert({ product_id: jacket.id, user_id: first.id, rating: 5, body: "Admin check" });
+
+    const { data: publicReviews } = await anon
+      .from("reviews")
+      .select("id, rating, body, user_id")
+      .eq("product_id", jacket.id);
+    expect(publicReviews).toHaveLength(1);
+
+    const { data: publicProfiles } = await anon
+      .from("profiles")
+      .select("id")
+      .eq("id", first.id);
+    expect(publicProfiles).toEqual([]);
+
+    const { data: serviceProfiles } = await service
+      .from("profiles")
+      .select("id")
+      .eq("id", first.id);
+    expect(serviceProfiles).toHaveLength(1);
   });
 });
