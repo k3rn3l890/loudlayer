@@ -451,9 +451,10 @@ async function verify() {
       console.log("✔ Migration complete.");
       console.log("\nNext steps:");
       console.log("  1. Promote your admin account if needed:");
-      console.log("     update public.profiles set role = 'admin' where email = 'loudlayer000@gmail.com';");
+      console.log("     update public.profiles set role = 'admin' where email = '<your-admin-email>';");
       console.log("  2. Test login, storefront, checkout and admin in the app.");
-      console.log("  3. Shut down the Render service once everything is verified.");
+      console.log("  3. Deploy the send-order-emails Edge Function: npx supabase functions deploy send-order-emails");
+      console.log("  4. Shut down the Render service once everything is verified.");
     }
     console.log("─".repeat(64));
   } catch (err) {
