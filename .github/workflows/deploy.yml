@@ -1,8 +1,9 @@
 name: Deploy to GitHub Pages
 
+# Manual fallback only. Vercel (https://loudlayer.vercel.app) is the live site
+# and deploys automatically on pushes to main. Run this workflow by hand when
+# you need to refresh the frozen GitHub Pages copy.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:

@@ -49,13 +49,15 @@
 
 ## Deployment
 
-- **Frontend (active):** GitHub Pages via `.github/workflows/deploy.yml`, served at
+- **Frontend (active):** Vercel at `https://loudlayer.vercel.app`. Every push to `main`
+  deploys to production; pull requests get preview URLs. Required environment variables
+  (Production + Preview): `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`. The anon key
+  is public by design; never add the service role key to a frontend build.
+  `vercel.json` rewrites every path to `index.html` for client-side routing, and
+  `vite.config.ts` switches `base` to `/` when the `VERCEL` env var is present.
+- **Frontend (fallback):** GitHub Pages via `.github/workflows/deploy.yml`, served at
   `https://k3rn3l890.github.io/loudlayer/` with `base: '/loudlayer/'` and `HashRouter`.
-  Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as repository secrets
-  (Settings → Secrets and variables → Actions). The anon key is public; never add the
-  service role key to a frontend or CI build environment.
-- **Frontend (optional):** Vercel also works — `vite.config.ts` switches the base to `/`
-  when the `VERCEL` env var is present. Set the same two `VITE_` variables in Vercel.
+  The workflow is manual-only (`workflow_dispatch`) so it never competes with Vercel.
 - **Supabase schema:** `supabase/migrations/20261023000100_init.sql` (already applied).
 - **Edge Function:** deploy `send-order-emails` after `npx supabase login`:
   `npx supabase functions deploy send-order-emails`, then set its secrets:
