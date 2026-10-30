@@ -5,6 +5,7 @@ import { resolveImage } from "../lib/supabase";
 import { Plus, Edit, Trash2, Search } from "lucide-react";
 import {
   PageMasthead, StatusTag, SkeletonRows, EmptyState,
+  cardClass, TONE_ACTIVE, TONE_NEUTRAL,
   formatMoney, thClass, tdClass,
 } from "./ui";
 
@@ -47,14 +48,14 @@ export default function ProductsPage() {
   };
 
   return (
-    <div>
+    <div className="space-y-5">
       <PageMasthead
         title="Products"
         meta={`Catalogue — ${products.length} ${products.length === 1 ? "entry" : "entries"}`}
         actions={
           <Link
             to="/admin/products/new"
-            className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-neutral-950 px-5 py-2.5 text-sm font-semibold text-white transition-colors duration-200 hover:bg-orange-500"
+            className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-zinc-950 px-5 py-2.5 text-sm font-semibold text-white transition-colors duration-150 hover:bg-orange-500"
           >
             <Plus className="h-4 w-4" />
             Add Product
@@ -63,15 +64,15 @@ export default function ProductsPage() {
       />
 
       {/* Search */}
-      <div className="relative mb-6 flex items-center border-b border-neutral-200 transition-colors duration-200 focus-within:border-zinc-950">
-        <Search className="h-4 w-4 shrink-0 text-zinc-400" strokeWidth={1.5} />
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" strokeWidth={1.5} />
         <input
           type="text"
           placeholder="Search by name or code…"
           aria-label="Search products"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full bg-transparent py-2.5 pl-2.5 text-sm text-zinc-950 placeholder-zinc-400 focus:outline-none"
+          className="h-10 w-full rounded-lg border border-zinc-200 bg-white pl-9 pr-3 text-sm text-zinc-950 placeholder-zinc-400 transition-colors duration-150 focus:border-orange-500 focus:outline-none focus:ring-4 focus:ring-orange-500/10 sm:w-80"
         />
       </div>
 
@@ -80,11 +81,11 @@ export default function ProductsPage() {
       ) : products.length === 0 ? (
         <EmptyState>No products yet. Add your first piece and the catalogue begins.</EmptyState>
       ) : (
-        <div className="border border-neutral-200 bg-white">
+        <div className={cardClass}>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-neutral-200">
+                <tr className="border-b border-zinc-100">
                   <th scope="col" className={thClass}>Product</th>
                   <th scope="col" className={`${thClass} hidden sm:table-cell`}>Code</th>
                   <th scope="col" className={`${thClass} hidden lg:table-cell`}>Category</th>
@@ -98,14 +99,14 @@ export default function ProductsPage() {
                 {products.map((product) => (
                   <tr
                     key={product.id}
-                    className="border-b border-neutral-100 transition-colors duration-200 last:border-b-0 hover:bg-zinc-50"
+                    className="border-b border-zinc-100 transition-colors duration-150 last:border-b-0 hover:bg-zinc-50"
                   >
                     <td className={`${tdClass} max-w-[220px]`}>
                       <Link
                         to={`/admin/products/edit/${product.id}`}
-                        className="group flex items-center gap-3"
+                        className="group flex cursor-pointer items-center gap-3"
                       >
-                        <div className="h-11 w-9 shrink-0 overflow-hidden border border-neutral-200 bg-zinc-100 sm:h-12 sm:w-10">
+                        <div className="h-11 w-9 shrink-0 overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100 sm:h-12 sm:w-10">
                           <img
                             src={resolveImage(product.image)}
                             alt={product.name}
@@ -145,22 +146,22 @@ export default function ProductsPage() {
                               ? "bg-red-500"
                               : product.stock < 10
                               ? "bg-amber-500"
-                              : "bg-green-600"
+                              : "bg-emerald-500"
                           }`}
                         />
                         {product.stock}
                         {product.stock === 0 && (
-                          <span className="font-mono text-[10px] uppercase tracking-widest text-zinc-500">Out</span>
+                          <span className="font-mono text-[10px] font-medium uppercase tracking-widest text-red-600">Out</span>
                         )}
                         {product.stock > 0 && product.stock < 10 && (
-                          <span className="font-mono text-[10px] uppercase tracking-widest text-zinc-500">Low</span>
+                          <span className="font-mono text-[10px] font-medium uppercase tracking-widest text-amber-600">Low</span>
                         )}
                       </span>
                     </td>
                     <td className={`${tdClass} hidden whitespace-nowrap sm:table-cell`}>
                       <StatusTag
-                        status={product.visible ? "active" : "hidden"}
-                        dotColor={product.visible ? "bg-green-600" : "bg-zinc-400"}
+                        status={product.visible ? "Active" : "Hidden"}
+                        tone={product.visible ? TONE_ACTIVE : TONE_NEUTRAL}
                       />
                     </td>
                     <td className={`${tdClass} whitespace-nowrap text-right`}>
@@ -168,14 +169,14 @@ export default function ProductsPage() {
                         <Link
                           to={`/admin/products/edit/${product.id}`}
                           aria-label={`Edit ${product.name}`}
-                          className="grid h-9 w-9 cursor-pointer place-items-center text-zinc-400 transition-colors duration-200 hover:text-zinc-950"
+                          className="grid h-9 w-9 cursor-pointer place-items-center rounded-lg text-zinc-400 transition-colors duration-150 hover:bg-zinc-100 hover:text-zinc-950"
                         >
                           <Edit className="h-4 w-4" strokeWidth={1.5} />
                         </Link>
                         <button
                           onClick={() => handleDelete(product.id, product.name)}
                           aria-label={`Delete ${product.name}`}
-                          className="grid h-9 w-9 cursor-pointer place-items-center text-zinc-400 transition-colors duration-200 hover:text-red-600"
+                          className="grid h-9 w-9 cursor-pointer place-items-center rounded-lg text-zinc-400 transition-colors duration-150 hover:bg-red-50 hover:text-red-600"
                         >
                           <Trash2 className="h-4 w-4" strokeWidth={1.5} />
                         </button>

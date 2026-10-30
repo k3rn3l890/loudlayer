@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, type ChangeEvent, type FormEvent } from "r
 import { useParams, useNavigate } from "react-router-dom";
 import { adminApi } from "./api";
 import { Upload, X, ArrowLeft } from "lucide-react";
-import { PageMasthead, MonoCaption, Skeleton } from "./ui";
+import { PageMasthead, MonoCaption, Skeleton, cardClass } from "./ui";
 
 interface ProductForm {
   name: string;
@@ -23,10 +23,10 @@ const emptyForm: ProductForm = {
 };
 
 const fieldLabel =
-  "mb-1.5 block cursor-pointer font-mono text-[11px] font-medium uppercase tracking-widest text-zinc-600";
+  "mb-1.5 block cursor-pointer font-medium text-sm text-zinc-700";
 
 const fieldInput =
-  "w-full rounded-none border border-neutral-200 bg-white px-3 py-2.5 text-sm text-zinc-950 placeholder-zinc-400 transition-colors duration-200 focus:border-zinc-950 focus:outline-none focus:ring-2 focus:ring-orange-500";
+  "w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-950 placeholder-zinc-400 transition-colors duration-150 focus:border-orange-500 focus:outline-none focus:ring-4 focus:ring-orange-500/10";
 
 const fieldHelper = "mt-1.5 text-xs text-zinc-500";
 
@@ -129,16 +129,18 @@ export default function ProductFormPage() {
   if (loading) {
     return (
       <div className="max-w-3xl">
-        <div className="mb-6 border-b border-neutral-200 pb-5 sm:mb-8 sm:pb-6">
-          <Skeleton className="h-8 w-48 sm:h-10 sm:w-60" />
-          <Skeleton className="mt-3 h-2.5 w-52" />
+        <div className="mb-6">
+          <Skeleton className="h-6 w-48 sm:w-60" />
+          <Skeleton className="mt-2 h-3 w-52" />
         </div>
-        <div className="grid grid-cols-1 gap-5 border border-neutral-200 bg-white p-4 sm:grid-cols-2 sm:gap-6 sm:p-6">
-          <div className="space-y-2.5 sm:col-span-2"><Skeleton className="h-2.5 w-14" /><Skeleton className="h-11 w-full" /></div>
-          {Array.from({ length: 4 }, (_, i) => (
-            <div key={i} className="space-y-2.5"><Skeleton className="h-2.5 w-14" /><Skeleton className="h-11 w-full" /></div>
-          ))}
-          <div className="sm:col-span-2"><Skeleton className="h-44 w-full" /></div>
+        <div className={`${cardClass} p-4 sm:p-6`}>
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6">
+            <div className="space-y-2.5 sm:col-span-2"><Skeleton className="h-3.5 w-16" /><Skeleton className="h-11 w-full rounded-lg" /></div>
+            {Array.from({ length: 4 }, (_, i) => (
+              <div key={i} className="space-y-2.5"><Skeleton className="h-3.5 w-16" /><Skeleton className="h-11 w-full rounded-lg" /></div>
+            ))}
+            <div className="sm:col-span-2"><Skeleton className="h-44 w-full rounded-xl" /></div>
+          </div>
         </div>
       </div>
     );
@@ -148,9 +150,9 @@ export default function ProductFormPage() {
     <div className="max-w-3xl">
       <button
         onClick={() => navigate("/admin/products")}
-        className="mb-5 inline-flex cursor-pointer items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-zinc-500 transition-colors duration-200 hover:text-zinc-950 sm:text-[11px]"
+        className="mb-4 inline-flex cursor-pointer items-center gap-1.5 text-sm font-medium text-zinc-600 transition-colors duration-150 hover:text-zinc-950"
       >
-        <ArrowLeft className="h-3.5 w-3.5" />
+        <ArrowLeft className="h-4 w-4" />
         All products
       </button>
 
@@ -159,20 +161,20 @@ export default function ProductFormPage() {
         meta={isEdit ? "Editing catalogue entry" : "New catalogue entry"}
       />
 
-      <form onSubmit={handleSubmit} className="space-y-6 border border-neutral-200 bg-white p-4 sm:p-6 mb-10">
+      <form onSubmit={handleSubmit} className={`${cardClass} mb-10 space-y-6 p-4 sm:p-6`}>
         {error && (
-          <div role="alert" className="border border-red-200 bg-red-50 px-4 py-2.5 text-xs font-medium text-red-600">
+          <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
             {error}
           </div>
         )}
 
         <div className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2">
           <div className="sm:col-span-2">
-            <label htmlFor="product-name" className={fieldLabel}>Name *</label>
+            <label htmlFor="product-name" className={fieldLabel}>Name <span aria-hidden="true" className="text-red-500">*</span></label>
             <input id="product-name" name="name" value={form.name} onChange={handleChange} required className={fieldInput} />
           </div>
           <div>
-            <label htmlFor="product-price" className={fieldLabel}>Price (₵) *</label>
+            <label htmlFor="product-price" className={fieldLabel}>Price (₵) <span aria-hidden="true" className="text-red-500">*</span></label>
             <input id="product-price" name="price" type="number" step="0.01" min="0" value={form.price} onChange={handleChange} required className={`${fieldInput} tabular-nums`} />
           </div>
           <div>
@@ -193,7 +195,7 @@ export default function ProductFormPage() {
           <div className="sm:col-span-2">
             <label className={fieldLabel}>Image</label>
             {imagePreview ? (
-              <div className="relative aspect-[16/9] w-full overflow-hidden border border-neutral-200 bg-zinc-50">
+              <div className="relative aspect-[16/9] w-full overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50">
                 <img
                   src={imagePreview}
                   alt="Product preview"
@@ -203,7 +205,7 @@ export default function ProductFormPage() {
                 <button
                   type="button"
                   onClick={handleRemoveImage}
-                  className="absolute right-2 top-2 cursor-pointer p-1.5 text-white transition-colors duration-200 bg-neutral-950/80 hover:bg-red-600"
+                  className="absolute right-2 top-2 cursor-pointer rounded-lg bg-zinc-950/80 p-1.5 text-white transition-colors duration-150 hover:bg-red-600"
                   title="Remove image"
                   aria-label="Remove image"
                 >
@@ -212,7 +214,7 @@ export default function ProductFormPage() {
               </div>
             ) : (
               <label
-                className={`flex aspect-[16/9] w-full cursor-pointer flex-col items-center justify-center border border-neutral-200 bg-white transition-colors duration-200 hover:border-zinc-950 hover:bg-zinc-50 ${
+                className={`flex aspect-[16/9] w-full cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-zinc-200 bg-zinc-50 transition-colors duration-150 hover:border-zinc-400 hover:bg-white ${
                   uploading ? "pointer-events-none opacity-60" : ""
                 }`}
               >
@@ -225,17 +227,19 @@ export default function ProductFormPage() {
                 />
                 {uploading ? (
                   <div className="flex flex-col items-center gap-2.5">
-                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-neutral-900 border-t-transparent" />
+                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-zinc-900 border-t-transparent" />
                     <MonoCaption className="text-[10px]">Uploading</MonoCaption>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center gap-2.5">
-                    <div className="grid h-10 w-10 place-items-center rounded-full border border-neutral-200">
+                    <div className="grid h-10 w-10 place-items-center rounded-full bg-white shadow-sm ring-1 ring-zinc-200">
                       <Upload className="h-4 w-4 text-zinc-500" strokeWidth={1.5} />
                     </div>
                     <div className="text-center">
-                      <MonoCaption className="text-[10px] sm:text-[11px]">Upload image</MonoCaption>
-                      <p className="mt-1 font-mono text-[10px] text-zinc-400">JPG · PNG · WebP · GIF · SVG · max 5MB</p>
+                      <span className="text-sm font-medium text-zinc-700">Click to upload image</span>
+                      <p className="mt-0.5 font-mono text-[10px] uppercase tracking-widest text-zinc-400">
+                        JPG · PNG · WebP · GIF · SVG · max 5MB
+                      </p>
                     </div>
                   </div>
                 )}
@@ -295,7 +299,7 @@ export default function ProductFormPage() {
               name="visible"
               checked={form.visible}
               onChange={handleChange}
-              className="h-4 w-4 cursor-pointer accent-neutral-900 focus:outline-none focus:ring-2 focus:ring-orange-500"
+              className="h-4 w-4 cursor-pointer accent-neutral-900 focus:outline-none focus:ring-4 focus:ring-orange-500/10"
             />
             <label htmlFor="product-visible" className="cursor-pointer text-sm text-zinc-700">
               Visible on storefront
@@ -303,18 +307,18 @@ export default function ProductFormPage() {
           </div>
         </div>
 
-        <div className="flex flex-col items-stretch gap-3 border-t border-neutral-200 pt-5 sm:flex-row sm:items-center">
+        <div className="flex flex-col items-stretch gap-3 border-t border-zinc-100 pt-5 sm:flex-row sm:items-center">
           <button
             type="submit"
             disabled={saving || uploading}
-            className="h-11 shrink-0 cursor-pointer rounded-full bg-neutral-950 px-7 text-sm font-semibold text-white transition-colors duration-200 hover:bg-orange-500 disabled:cursor-not-allowed disabled:opacity-50"
+            className="h-11 shrink-0 cursor-pointer rounded-full bg-zinc-950 px-7 text-sm font-semibold text-white transition-colors duration-150 hover:bg-orange-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saving ? "Saving…" : isEdit ? "Update Product" : "Create Product"}
           </button>
           <button
             type="button"
             onClick={() => navigate("/admin/products")}
-            className="h-11 cursor-pointer rounded-full border border-neutral-200 px-6 text-sm font-medium text-zinc-600 transition-colors duration-200 hover:border-zinc-950 hover:text-zinc-950"
+            className="h-11 cursor-pointer rounded-full border border-zinc-200 bg-white px-6 text-sm font-medium text-zinc-600 transition-colors duration-150 hover:border-zinc-950 hover:text-zinc-950"
           >
             Cancel
           </button>

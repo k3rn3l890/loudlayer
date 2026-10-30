@@ -6,7 +6,7 @@ import { resolveImage } from "../lib/supabase";
 import { ArrowLeft, ChevronDown } from "lucide-react";
 import {
   PageMasthead, MonoCaption, StatusTag, Skeleton, SkeletonRows, EmptyState,
-  formatDateTime, formatMoney,
+  cardClass, formatDateTime, formatMoney,
 } from "./ui";
 
 interface OrderItem {
@@ -67,18 +67,18 @@ export default function OrderDetailPage() {
 
   if (loading) {
     return (
-      <div className="max-w-3xl">
-        <div className="mb-6 border-b border-neutral-200 pb-5 sm:mb-8 sm:pb-6">
-          <Skeleton className="h-8 w-56 sm:h-10 sm:w-72" />
-          <Skeleton className="mt-3 h-2.5 w-44" />
+      <div className="max-w-3xl space-y-5">
+        <div>
+          <Skeleton className="h-6 w-56 sm:w-72" />
+          <Skeleton className="mt-2 h-3 w-44" />
         </div>
-        <div className="mb-6 grid grid-cols-1 gap-px border border-neutral-200 bg-neutral-200 sm:grid-cols-2">
-          <div className="space-y-2.5 bg-white px-4 py-4 sm:px-5 sm:py-5">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className={`${cardClass} space-y-2.5 p-5`}>
             <Skeleton className="h-2.5 w-16" />
             <Skeleton className="h-3.5 w-32" />
             <Skeleton className="h-3 w-40" />
           </div>
-          <div className="space-y-2.5 bg-white px-4 py-4 sm:px-5 sm:py-5">
+          <div className={`${cardClass} space-y-2.5 p-5`}>
             <Skeleton className="h-2.5 w-16" />
             <Skeleton className="h-3.5 w-full" />
             <Skeleton className="h-3 w-3/4" />
@@ -92,7 +92,7 @@ export default function OrderDetailPage() {
   if (!order) {
     return (
       <div className="max-w-3xl">
-        <EmptyState>Order not found. It may have been removed from the ledger.</EmptyState>
+        <EmptyState>Order not found. It may have been removed.</EmptyState>
       </div>
     );
   }
@@ -101,21 +101,21 @@ export default function OrderDetailPage() {
     <div className="max-w-3xl">
       <button
         onClick={() => navigate("/admin/orders")}
-        className="mb-5 inline-flex cursor-pointer items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-zinc-500 transition-colors duration-200 hover:text-zinc-950 sm:text-[11px]"
+        className="mb-4 inline-flex cursor-pointer items-center gap-1.5 text-sm font-medium text-zinc-600 transition-colors duration-150 hover:text-zinc-950"
       >
-        <ArrowLeft className="h-3.5 w-3.5" />
-        Back to orders
+        <ArrowLeft className="h-4 w-4" />
+        All orders
       </button>
 
       <PageMasthead
-        title={<span>Order {order.order_number}</span>}
+        title={`Order ${order.order_number}`}
         meta={`Created ${formatDateTime(order.created_at)}`}
         actions={<StatusTag status={order.status} />}
       />
 
-      {/* Customer + Shipping spec sheet */}
-      <section className="mb-4 grid grid-cols-1 border border-neutral-200 bg-white sm:mb-6 sm:grid-cols-2" aria-label="Order details">
-        <div className="border-b border-neutral-200 px-4 py-4 sm:border-b-0 sm:border-r sm:px-5 sm:py-5">
+      {/* Customer + Shipping panels */}
+      <section className="mb-4 grid grid-cols-1 gap-4 sm:mb-5 sm:grid-cols-2" aria-label="Order details">
+        <div className={`${cardClass} p-4 sm:p-5`}>
           <MonoCaption>Customer</MonoCaption>
           <p className="mt-2.5 text-sm font-medium text-zinc-950">{order.customer_name || "—"}</p>
           <p className="mt-1 break-all font-mono text-xs text-zinc-500">{order.customer_email}</p>
@@ -123,24 +123,24 @@ export default function OrderDetailPage() {
             <p className="mt-0.5 font-mono text-xs text-zinc-500">{order.customer_phone}</p>
           )}
         </div>
-        <div className="px-4 py-4 sm:px-5 sm:py-5">
+        <div className={`${cardClass} p-4 sm:p-5`}>
           <MonoCaption>Shipping</MonoCaption>
           <p className="mt-2.5 text-sm text-zinc-600 whitespace-pre-line">{order.shipping_address || "—"}</p>
         </div>
       </section>
 
-      {/* Items ledger */}
-      <section className="mb-4 border border-neutral-200 bg-white sm:mb-6" aria-label="Order items">
-        <div className="border-b border-neutral-200 px-4 py-3 sm:px-5">
+      {/* Items panel */}
+      <section className={`${cardClass} mb-4 sm:mb-5`} aria-label="Order items">
+        <div className="border-b border-zinc-100 px-4 py-3 sm:px-5">
           <MonoCaption>Items</MonoCaption>
         </div>
         {items.length === 0 ? (
           <p className="px-4 py-6 text-sm text-zinc-500 sm:px-5">No items on this order.</p>
         ) : (
-          <ul className="divide-y divide-neutral-100">
+          <ul className="divide-y divide-zinc-100">
             {items.map((item) => (
               <li key={item.id} className="flex items-center gap-3 px-4 py-3 sm:px-5 sm:py-3.5">
-                <div className="h-11 w-9 shrink-0 overflow-hidden border border-neutral-200 bg-zinc-100 sm:h-12 sm:w-10">
+                <div className="h-11 w-9 shrink-0 overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100 sm:h-12 sm:w-10">
                   <img
                     src={resolveImage(item.image)}
                     alt={item.product_name}
@@ -162,7 +162,7 @@ export default function OrderDetailPage() {
             ))}
           </ul>
         )}
-        <div className="flex items-center justify-between border-t border-neutral-200 px-4 py-3.5 sm:px-5">
+        <div className="flex items-center justify-between border-t border-zinc-100 px-4 py-3.5 sm:px-5">
           <MonoCaption>Total</MonoCaption>
           <p className="font-mono text-base font-semibold text-zinc-950 tabular-nums sm:text-lg">
             {formatMoney(order.total)}
@@ -171,7 +171,7 @@ export default function OrderDetailPage() {
       </section>
 
       {/* Status control */}
-      <section className="border border-neutral-200 bg-white px-4 py-4 sm:px-5 sm:py-5" aria-label="Update status">
+      <section className={`${cardClass} p-4 sm:p-5`} aria-label="Update status">
         <label htmlFor="order-status" className="block">
           <MonoCaption>Update status</MonoCaption>
           <div className="relative mt-2.5 max-w-xs">
@@ -180,7 +180,7 @@ export default function OrderDetailPage() {
               value={order.status}
               disabled={updating}
               onChange={(e) => handleStatusChange(e.target.value)}
-              className="w-full cursor-pointer appearance-none rounded-none border border-neutral-200 bg-white py-2.5 pl-3 pr-9 font-mono text-xs uppercase tracking-widest text-zinc-950 transition-colors duration-200 focus:border-zinc-950 focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:cursor-wait disabled:opacity-50"
+              className="w-full cursor-pointer appearance-none rounded-lg border border-zinc-200 bg-white py-2.5 pl-3 pr-9 text-sm font-medium capitalize text-zinc-950 transition-colors duration-150 focus:border-orange-500 focus:outline-none focus:ring-4 focus:ring-orange-500/10 disabled:cursor-wait disabled:opacity-50"
             >
               {VALID_STATUSES.map((s) => (
                 <option key={s} value={s}>{s}</option>
@@ -189,16 +189,19 @@ export default function OrderDetailPage() {
             <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" strokeWidth={1.5} />
           </div>
         </label>
-        <p className="mt-2.5 font-mono text-[10px] uppercase tracking-widest text-zinc-400" role="status">
-          {updating ? "Updating…" : "Select to move this order along"}
+        <p className="mt-2.5 text-xs text-zinc-500" role="status">
+          {updating ? "Updating…" : "Select to move this order along."}
         </p>
       </section>
 
       {/* Notes */}
       {order.notes && (
-        <section className="mt-4 border-l-2 border-neutral-300 pl-4" aria-label="Order notes">
-          <MonoCaption>Notes</MonoCaption>
-          <p className="mt-2 text-sm text-zinc-600">{order.notes}</p>
+        <section
+          className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3.5"
+          aria-label="Order notes"
+        >
+          <span className="font-mono text-[10px] uppercase tracking-widest text-amber-700">Notes</span>
+          <p className="mt-1.5 text-sm text-amber-800">{order.notes}</p>
         </section>
       )}
     </div>

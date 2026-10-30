@@ -4,7 +4,7 @@ import { adminApi } from "./api";
 import { Search } from "lucide-react";
 import {
   PageMasthead, StatusTag, SkeletonRows, EmptyState,
-  formatDate, formatMoney, thClass, tdClass,
+  cardClass, formatDate, formatMoney, thClass, tdClass,
 } from "./ui";
 
 interface Order {
@@ -37,16 +37,16 @@ export default function OrdersPage() {
   useEffect(() => { fetchOrders(); }, [filter, search]);
 
   return (
-    <div>
+    <div className="space-y-5">
       <PageMasthead
         title="Orders"
         meta={`Order book — ${orders.length} ${orders.length === 1 ? "entry" : "entries"}`}
       />
 
-      {/* Filters + search */}
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      {/* Segmented filter + search */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div
-          className="-mx-1 flex gap-4 overflow-x-auto px-1 pb-1 sm:mx-0 sm:gap-5 sm:px-0 sm:pb-0"
+          className="flex max-w-full gap-1 overflow-x-auto rounded-lg bg-zinc-100 p-1"
           aria-label="Filter orders by status"
         >
           {STATUSES.map((s) => (
@@ -54,25 +54,25 @@ export default function OrdersPage() {
               key={s}
               onClick={() => setFilter(s)}
               aria-current={filter === s ? "true" : undefined}
-              className={`shrink-0 border-b-2 pb-2 pt-1 font-mono text-[10px] uppercase tracking-widest transition-colors duration-200 cursor-pointer sm:text-[11px] ${
+              className={`shrink-0 cursor-pointer rounded-md px-3 py-1.5 text-xs font-medium capitalize transition-all duration-150 ${
                 filter === s
-                  ? "border-orange-500 font-medium text-zinc-950"
-                  : "border-neutral-200 text-zinc-500 hover:border-neutral-400 hover:text-zinc-950"
+                  ? "bg-white text-zinc-950 shadow-sm"
+                  : "text-zinc-500 hover:text-zinc-950"
               }`}
             >
               {s}
             </button>
           ))}
         </div>
-        <div className="relative flex w-full items-center border-b border-neutral-200 transition-colors duration-200 focus-within:border-zinc-950 sm:w-64">
-          <Search className="h-4 w-4 shrink-0 text-zinc-400" strokeWidth={1.5} />
+        <div className="relative sm:w-64">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" strokeWidth={1.5} />
           <input
             type="text"
             placeholder="Search orders…"
             aria-label="Search orders"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-transparent py-2.5 pl-2.5 text-sm text-zinc-950 placeholder-zinc-400 focus:outline-none"
+            className="h-10 w-full rounded-lg border border-zinc-200 bg-white pl-9 pr-3 text-sm text-zinc-950 placeholder-zinc-400 transition-colors duration-150 focus:border-orange-500 focus:outline-none focus:ring-4 focus:ring-orange-500/10"
           />
         </div>
       </div>
@@ -80,13 +80,24 @@ export default function OrdersPage() {
       {loading ? (
         <SkeletonRows rows={6} />
       ) : orders.length === 0 ? (
-        <EmptyState>No orders found. Clear the filters or search and the ledger will fill in.</EmptyState>
+        <EmptyState
+          action={
+            <button
+              onClick={() => { setFilter("all"); setSearch(""); }}
+              className="h-10 cursor-pointer rounded-full border border-zinc-200 bg-white px-5 text-sm font-medium text-zinc-700 transition-colors duration-150 hover:border-zinc-950 hover:text-zinc-950"
+            >
+              Clear filters
+            </button>
+          }
+        >
+          No orders match this view. Clear the filters or search to see the full order book.
+        </EmptyState>
       ) : (
-        <div className="border border-neutral-200 bg-white">
+        <div className={cardClass}>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-neutral-200">
+                <tr className="border-b border-zinc-100">
                   <th scope="col" className={thClass}>Order #</th>
                   <th scope="col" className={thClass}>Customer</th>
                   <th scope="col" className={`${thClass} hidden sm:table-cell`}>Email</th>
@@ -99,7 +110,7 @@ export default function OrdersPage() {
                 {orders.map((order) => (
                   <tr
                     key={order.id}
-                    className="cursor-pointer border-b border-neutral-100 transition-colors duration-200 last:border-b-0 hover:bg-zinc-50"
+                    className="cursor-pointer border-b border-zinc-100 transition-colors duration-150 last:border-b-0 hover:bg-zinc-50"
                     onClick={() => navigate(`/admin/orders/${order.id}`)}
                   >
                     <td className={`${tdClass} whitespace-nowrap font-mono text-xs font-semibold text-zinc-950`}>
