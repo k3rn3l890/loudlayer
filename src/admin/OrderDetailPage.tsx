@@ -3,7 +3,11 @@ import { useParams, useNavigate } from "react-router-dom";
 import { adminApi } from "./api";
 import { notifyOrderEmails } from "../lib/userApi";
 import { resolveImage } from "../lib/supabase";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ChevronDown } from "lucide-react";
+import {
+  PageMasthead, MonoCaption, StatusTag, Skeleton, SkeletonRows, EmptyState,
+  formatDateTime, formatMoney,
+} from "./ui";
 
 interface OrderItem {
   id: number;
@@ -28,14 +32,6 @@ interface Order {
 }
 
 const VALID_STATUSES = ["pending", "processing", "shipped", "delivered", "cancelled"];
-
-const statusColors: Record<string, string> = {
-  pending: "bg-yellow-100 text-yellow-700",
-  processing: "bg-blue-100 text-blue-700",
-  shipped: "bg-purple-100 text-purple-700",
-  delivered: "bg-green-100 text-green-700",
-  cancelled: "bg-red-100 text-red-700",
-};
 
 export default function OrderDetailPage() {
   const { id } = useParams();
@@ -71,115 +67,140 @@ export default function OrderDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-2 border-neutral-900 border-t-transparent rounded-full animate-spin" />
+      <div className="max-w-3xl">
+        <div className="mb-6 border-b border-neutral-200 pb-5 sm:mb-8 sm:pb-6">
+          <Skeleton className="h-8 w-56 sm:h-10 sm:w-72" />
+          <Skeleton className="mt-3 h-2.5 w-44" />
+        </div>
+        <div className="mb-6 grid grid-cols-1 gap-px border border-neutral-200 bg-neutral-200 sm:grid-cols-2">
+          <div className="space-y-2.5 bg-white px-4 py-4 sm:px-5 sm:py-5">
+            <Skeleton className="h-2.5 w-16" />
+            <Skeleton className="h-3.5 w-32" />
+            <Skeleton className="h-3 w-40" />
+          </div>
+          <div className="space-y-2.5 bg-white px-4 py-4 sm:px-5 sm:py-5">
+            <Skeleton className="h-2.5 w-16" />
+            <Skeleton className="h-3.5 w-full" />
+            <Skeleton className="h-3 w-3/4" />
+          </div>
+        </div>
+        <SkeletonRows rows={4} />
       </div>
     );
   }
 
   if (!order) {
-    return <div className="text-sm text-neutral-400">Order not found.</div>;
+    return (
+      <div className="max-w-3xl">
+        <EmptyState>Order not found. It may have been removed from the ledger.</EmptyState>
+      </div>
+    );
   }
-
-  const statusIndex = VALID_STATUSES.indexOf(order.status);
 
   return (
     <div className="max-w-3xl">
-      <button onClick={() => navigate("/admin/orders")} className="flex items-center gap-2 text-sm text-neutral-500 hover:text-neutral-900 mb-4 transition cursor-pointer">
-        <ArrowLeft className="w-4 h-4" />
-        <span className="hidden sm:inline">Back to Orders</span>
-        <span className="sm:hidden">Orders</span>
+      <button
+        onClick={() => navigate("/admin/orders")}
+        className="mb-5 inline-flex cursor-pointer items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-zinc-500 transition-colors duration-200 hover:text-zinc-950 sm:text-[11px]"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" />
+        Back to orders
       </button>
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 sm:mb-6">
-        <div>
-          <h1 className="text-lg sm:text-2xl font-bold text-neutral-900">
-            Order <span className="font-mono">{order.order_number}</span>
-          </h1>
-          <p className="text-[11px] sm:text-xs text-neutral-400 font-mono mt-0.5">
-            Created {new Date(order.created_at).toLocaleString()}
-          </p>
-        </div>
-        <span className={`self-start sm:self-auto text-[10px] sm:text-xs font-bold px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full uppercase tracking-wider ${statusColors[order.status]}`}>
-          {order.status}
-        </span>
-      </div>
+      <PageMasthead
+        title={<span>Order {order.order_number}</span>}
+        meta={`Created ${formatDateTime(order.created_at)}`}
+        actions={<StatusTag status={order.status} />}
+      />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6">
-        <div className="bg-white rounded-xl sm:rounded-2xl border border-neutral-200 p-4 sm:p-5">
-          <h3 className="text-[10px] sm:text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2 sm:mb-3 font-mono">Customer</h3>
-          <p className="text-sm font-medium text-neutral-900">{order.customer_name || "—"}</p>
-          <p className="text-xs text-neutral-400 font-mono mt-0.5 break-all">{order.customer_email}</p>
-          {order.customer_phone && <p className="text-xs text-neutral-400 font-mono mt-0.5">{order.customer_phone}</p>}
+      {/* Customer + Shipping spec sheet */}
+      <section className="mb-4 grid grid-cols-1 border border-neutral-200 bg-white sm:mb-6 sm:grid-cols-2" aria-label="Order details">
+        <div className="border-b border-neutral-200 px-4 py-4 sm:border-b-0 sm:border-r sm:px-5 sm:py-5">
+          <MonoCaption>Customer</MonoCaption>
+          <p className="mt-2.5 text-sm font-medium text-zinc-950">{order.customer_name || "—"}</p>
+          <p className="mt-1 break-all font-mono text-xs text-zinc-500">{order.customer_email}</p>
+          {order.customer_phone && (
+            <p className="mt-0.5 font-mono text-xs text-zinc-500">{order.customer_phone}</p>
+          )}
         </div>
-        <div className="bg-white rounded-xl sm:rounded-2xl border border-neutral-200 p-4 sm:p-5">
-          <h3 className="text-[10px] sm:text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2 sm:mb-3 font-mono">Shipping</h3>
-          <p className="text-xs sm:text-sm text-neutral-600 whitespace-pre-line">{order.shipping_address || "—"}</p>
+        <div className="px-4 py-4 sm:px-5 sm:py-5">
+          <MonoCaption>Shipping</MonoCaption>
+          <p className="mt-2.5 text-sm text-zinc-600 whitespace-pre-line">{order.shipping_address || "—"}</p>
         </div>
-      </div>
+      </section>
 
-      <div className="bg-white rounded-xl sm:rounded-2xl border border-neutral-200 overflow-hidden mb-4 sm:mb-6">
-        <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-neutral-100">
-          <h3 className="text-[10px] sm:text-xs font-bold text-neutral-400 uppercase tracking-wider font-mono">Items</h3>
+      {/* Items ledger */}
+      <section className="mb-4 border border-neutral-200 bg-white sm:mb-6" aria-label="Order items">
+        <div className="border-b border-neutral-200 px-4 py-3 sm:px-5">
+          <MonoCaption>Items</MonoCaption>
         </div>
         {items.length === 0 ? (
-          <div className="p-4 sm:p-5 text-sm text-neutral-400">No items.</div>
+          <p className="px-4 py-6 text-sm text-zinc-500 sm:px-5">No items on this order.</p>
         ) : (
-          <div className="divide-y divide-neutral-100">
+          <ul className="divide-y divide-neutral-100">
             {items.map((item) => (
-              <div key={item.id} className="px-4 sm:px-5 py-2.5 sm:py-3 flex items-center gap-2 sm:gap-3">
-                <div className="w-8 h-10 sm:w-10 sm:h-12 bg-zinc-100 rounded-lg overflow-hidden shrink-0">
-                  <img src={resolveImage(item.image)} alt={item.product_name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+              <li key={item.id} className="flex items-center gap-3 px-4 py-3 sm:px-5 sm:py-3.5">
+                <div className="h-11 w-9 shrink-0 overflow-hidden border border-neutral-200 bg-zinc-100 sm:h-12 sm:w-10">
+                  <img
+                    src={resolveImage(item.image)}
+                    alt={item.product_name}
+                    className="h-full w-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs sm:text-sm font-medium text-neutral-900 truncate">{item.product_name}</p>
-                  <p className="text-[11px] sm:text-xs text-neutral-400 font-mono">
-                    ₵{item.product_price.toFixed(2)} x {item.quantity}
-                    {item.size ? ` [${item.size}]` : ""}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-zinc-950">{item.product_name}</p>
+                  <p className="mt-0.5 font-mono text-[11px] text-zinc-500">
+                    {formatMoney(item.product_price)} × {item.quantity}
+                    {item.size ? ` (${item.size})` : ""}
                   </p>
                 </div>
-                <p className="font-mono font-bold text-xs sm:text-sm whitespace-nowrap">₵{(item.product_price * item.quantity).toFixed(2)}</p>
-              </div>
+                <p className="whitespace-nowrap font-mono text-xs font-semibold text-zinc-950 tabular-nums sm:text-sm">
+                  {formatMoney(item.product_price * item.quantity)}
+                </p>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
-        <div className="px-4 sm:px-5 py-3 sm:py-4 border-t border-neutral-100 flex items-center justify-between bg-neutral-50/50">
-          <span className="text-sm font-bold text-neutral-900">Total</span>
-          <span className="font-mono font-bold text-base sm:text-lg">₵{order.total.toFixed(2)}</span>
+        <div className="flex items-center justify-between border-t border-neutral-200 px-4 py-3.5 sm:px-5">
+          <MonoCaption>Total</MonoCaption>
+          <p className="font-mono text-base font-semibold text-zinc-950 tabular-nums sm:text-lg">
+            {formatMoney(order.total)}
+          </p>
         </div>
-      </div>
+      </section>
 
-      <div className="bg-white rounded-xl sm:rounded-2xl border border-neutral-200 p-4 sm:p-5">
-        <h3 className="text-[10px] sm:text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2 sm:mb-3 font-mono">Update Status</h3>
-        <div className="flex flex-wrap gap-1.5 sm:gap-2">
-          {VALID_STATUSES.map((s, i) => {
-            const isPast = i < statusIndex;
-            const isCurrent = i === statusIndex;
-            return (
-              <button
-                key={s}
-                onClick={() => handleStatusChange(s)}
-                disabled={updating || isCurrent}
-                className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold uppercase tracking-wider transition cursor-pointer disabled:cursor-not-allowed ${
-                  isCurrent
-                    ? "bg-neutral-900 text-white"
-                    : isPast
-                    ? "bg-neutral-100 text-neutral-400"
-                    : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
-                }`}
-              >
-                {s}
-              </button>
-            );
-          })}
-        </div>
-        {order.notes && (
-          <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-neutral-100">
-            <h4 className="text-[10px] sm:text-xs font-bold text-neutral-400 font-mono mb-1">Notes</h4>
-            <p className="text-xs sm:text-sm text-neutral-600">{order.notes}</p>
+      {/* Status control */}
+      <section className="border border-neutral-200 bg-white px-4 py-4 sm:px-5 sm:py-5" aria-label="Update status">
+        <label htmlFor="order-status" className="block">
+          <MonoCaption>Update status</MonoCaption>
+          <div className="relative mt-2.5 max-w-xs">
+            <select
+              id="order-status"
+              value={order.status}
+              disabled={updating}
+              onChange={(e) => handleStatusChange(e.target.value)}
+              className="w-full cursor-pointer appearance-none rounded-none border border-neutral-200 bg-white py-2.5 pl-3 pr-9 font-mono text-xs uppercase tracking-widest text-zinc-950 transition-colors duration-200 focus:border-zinc-950 focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:cursor-wait disabled:opacity-50"
+            >
+              {VALID_STATUSES.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" strokeWidth={1.5} />
           </div>
-        )}
-      </div>
+        </label>
+        <p className="mt-2.5 font-mono text-[10px] uppercase tracking-widest text-zinc-400" role="status">
+          {updating ? "Updating…" : "Select to move this order along"}
+        </p>
+      </section>
+
+      {/* Notes */}
+      {order.notes && (
+        <section className="mt-4 border-l-2 border-neutral-300 pl-4" aria-label="Order notes">
+          <MonoCaption>Notes</MonoCaption>
+          <p className="mt-2 text-sm text-zinc-600">{order.notes}</p>
+        </section>
+      )}
     </div>
   );
 }

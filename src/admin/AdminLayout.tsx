@@ -5,6 +5,13 @@ import {
   LayoutDashboard, Package, ShoppingCart, LogOut, Menu, X
 } from "lucide-react";
 import logo from "../../loudlayer_assets/logo.jpg";
+import { MonoCaption } from "./ui";
+
+const NAV_ITEMS = [
+  { to: "/admin", end: true, label: "Dashboard", icon: LayoutDashboard, index: "01" },
+  { to: "/admin/products", end: false, label: "Products", icon: Package, index: "02" },
+  { to: "/admin/orders", end: false, label: "Orders", icon: ShoppingCart, index: "03" },
+] as const;
 
 export default function AdminLayout() {
   const navigate = useNavigate();
@@ -16,139 +23,131 @@ export default function AdminLayout() {
   };
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
-    `flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
+    `relative flex items-center gap-3 py-3 pl-5 pr-3 text-sm cursor-pointer transition-colors duration-200 ${
       isActive
-        ? "bg-neutral-900 text-white"
-        : "text-neutral-600 hover:bg-neutral-200/50 hover:text-neutral-900"
+        ? "font-semibold text-zinc-950"
+        : "text-zinc-500 hover:text-zinc-950"
     }`;
 
+  const renderNavLink = (item: (typeof NAV_ITEMS)[number], onClick?: () => void) => (
+    <NavLink key={item.label} to={item.to} end={item.end} onClick={onClick} className={linkClass}>
+      {({ isActive }: { isActive: boolean }) => (
+        <>
+          {/* Active marker: 2px orange bar, full row height */}
+          <span
+            aria-hidden="true"
+            className={`absolute left-0 top-0 h-full w-[2px] rounded-full bg-orange-500 transition-opacity duration-200 ${
+              isActive ? "opacity-100" : "opacity-0"
+            }`}
+          />
+          <span aria-hidden="true" className="font-mono text-[10px] tracking-widest text-zinc-400">
+            {item.index}
+          </span>
+          <span>{item.label}</span>
+          <item.icon className="ml-auto h-4 w-4" strokeWidth={1.5} />
+        </>
+      )}
+    </NavLink>
+  );
+
   const sidebarContent = (
-    <div className="flex flex-col flex-1 min-h-0">
-      <div className="flex items-center justify-between px-3 py-4 shrink-0">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg overflow-hidden">
-            <img src={logo} alt="LoudLayer" className="w-full h-full object-cover" />
+    <div className="flex h-full flex-col">
+      {/* Brand block */}
+      <div className="flex shrink-0 items-start justify-between px-3 pb-6 pt-5 sm:px-4">
+        <div className="flex items-center gap-2.5 pl-2">
+          <div className="h-9 w-9 overflow-hidden rounded-md">
+            <img src={logo} alt="LoudLayer" className="h-full w-full object-cover" />
           </div>
           <div>
-            <h1 className="text-sm font-bold text-neutral-900">LoudLayer</h1>
-            <p className="text-[10px] text-neutral-400 font-mono">Admin Panel</p>
+            <p className="text-sm font-bold tracking-tight text-zinc-950">LoudLayer</p>
+            <MonoCaption className="mt-0.5 block text-[10px]">Admin</MonoCaption>
           </div>
         </div>
         <button
           onClick={() => setSidebarOpen(false)}
-          className="md:hidden p-2 rounded-lg hover:bg-neutral-100 transition cursor-pointer"
+          className="-mr-2 -mt-1 p-2 text-zinc-500 transition-colors duration-200 hover:text-zinc-950 cursor-pointer md:hidden"
           aria-label="Close menu"
         >
-          <X className="w-5 h-5 text-neutral-500" />
+          <X className="h-5 w-5" />
         </button>
       </div>
 
-      <nav className="flex-1 overflow-y-auto space-y-1 px-3">
-        <NavLink to="/admin" end onClick={() => setSidebarOpen(false)} className={linkClass}>
-          <LayoutDashboard className="w-4 h-4" />
-          Dashboard
-        </NavLink>
-        <NavLink to="/admin/products" onClick={() => setSidebarOpen(false)} className={linkClass}>
-          <Package className="w-4 h-4" />
-          Products
-        </NavLink>
-        <NavLink to="/admin/orders" onClick={() => setSidebarOpen(false)} className={linkClass}>
-          <ShoppingCart className="w-4 h-4" />
-          Orders
-        </NavLink>
+      {/* Numbered ledger nav */}
+      <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 pb-4 sm:px-4" aria-label="Admin">
+        {NAV_ITEMS.map((item) => renderNavLink(item, () => setSidebarOpen(false)))}
       </nav>
 
-      <div className="border-t border-neutral-200 pt-4 mt-4 px-3 shrink-0">
+      {/* Bottom zone: meta + danger-separated sign out */}
+      <div className="shrink-0 border-t border-neutral-200 px-3 pb-4 pt-3 sm:px-4">
+        <div className="pb-2 pl-5">
+          <MonoCaption className="text-[10px]">Signed in</MonoCaption>
+          <p className="mt-1 font-mono text-[10px] uppercase tracking-widest text-zinc-400">
+            {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }).toUpperCase()}
+          </p>
+        </div>
         <button
           onClick={handleLogout}
-          className="flex items-center gap-3 px-4 py-2.5 w-full rounded-xl text-sm font-medium text-neutral-500 hover:bg-red-50 hover:text-red-600 transition cursor-pointer"
+          className="group relative flex w-full items-center gap-3 py-3 pl-5 pr-3 text-sm text-zinc-500 cursor-pointer transition-colors duration-200 hover:text-red-600"
         >
-          <LogOut className="w-4 h-4" />
-          Sign Out
+          <span
+            aria-hidden="true"
+            className="absolute left-0 top-0 h-full w-[2px] rounded-full bg-red-500 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+          />
+          <LogOut className="h-4 w-4" strokeWidth={1.5} />
+          <span>Sign Out</span>
         </button>
-        </div>
+      </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-zinc-100 flex flex-col md:flex-row">
-      {/* Mobile Header Bar */}
-      <div className="md:hidden flex items-center justify-between bg-white border-b border-neutral-200 px-4 py-3 shrink-0">
+    <div className="flex min-h-screen flex-col bg-neutral-50 md:h-screen md:overflow-hidden md:flex-row">
+      {/* Mobile top bar */}
+      <header className="flex shrink-0 items-center justify-between border-b border-neutral-200 bg-white px-4 py-3 md:hidden">
         <button
           onClick={() => setSidebarOpen(true)}
-          className="p-2 -ml-2 rounded-lg hover:bg-neutral-100 transition cursor-pointer"
+          className="-mb-2 -ml-2 -mt-2 p-2 text-zinc-700 transition-colors duration-200 hover:text-zinc-950 cursor-pointer"
           aria-label="Open menu"
         >
-          <Menu className="w-5 h-5 text-neutral-700" />
+          <Menu className="h-5 w-5" />
         </button>
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg overflow-hidden">
-            <img src={logo} alt="LoudLayer" className="w-full h-full object-cover" />
+          <div className="h-7 w-7 overflow-hidden rounded-sm">
+            <img src={logo} alt="LoudLayer" className="h-full w-full object-cover" />
           </div>
-          <span className="text-sm font-bold text-neutral-900">LoudLayer</span>
+          <span className="text-sm font-bold tracking-tight text-zinc-950">LoudLayer</span>
         </div>
-        <div className="w-5" />
-      </div>
+        <div className="w-5" aria-hidden="true" />
+      </header>
 
-      {/* Mobile Sidebar Overlay */}
+      {/* Mobile overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-neutral-950/50 z-40 md:hidden"
+          className="fixed inset-0 z-40 bg-neutral-950/40 md:hidden"
           onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
         />
       )}
 
-      {/* Mobile Slide-out Sidebar */}
+      {/* Mobile slide-out drawer — visibility defers to the slide animation */}
       <aside
-        className={`fixed top-0 left-0 h-full w-72 bg-white z-50 shadow-2xl flex flex-col transform transition-transform duration-300 ease-in-out md:hidden ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
+        className={`fixed inset-y-0 left-0 z-50 w-72 border-r border-neutral-200 bg-white shadow-xl shadow-neutral-950/5 will-change-transform md:hidden ${
+          sidebarOpen
+            ? "visible translate-x-0 [transition-delay:0s,0s]"
+            : "invisible -translate-x-full [transition-delay:0s,300ms]"
+        } [transition-duration:300ms,0s] [transition-property:transform,visibility] [transition-timing-function:ease-in-out,linear]`}
+        aria-label="Admin navigation"
       >
         {sidebarContent}
       </aside>
 
-      {/* Desktop Sidebar */}
-      <aside className="hidden md:flex w-64 bg-white border-r border-neutral-200 flex-col p-4 shrink-0">
-        <div className="flex flex-col flex-1 min-h-0">
-          <div className="flex items-center gap-2 px-3 py-4 mb-6 shrink-0">
-            <div className="w-8 h-8 rounded-lg overflow-hidden">
-              <img src={logo} alt="LoudLayer" className="w-full h-full object-cover" />
-            </div>
-            <div>
-              <h1 className="text-sm font-bold text-neutral-900">LoudLayer</h1>
-              <p className="text-[10px] text-neutral-400 font-mono">Admin Panel</p>
-            </div>
-          </div>
-
-          <nav className="flex-1 space-y-1">
-            <NavLink to="/admin" end className={linkClass}>
-              <LayoutDashboard className="w-4 h-4" />
-              Dashboard
-            </NavLink>
-            <NavLink to="/admin/products" className={linkClass}>
-              <Package className="w-4 h-4" />
-              Products
-            </NavLink>
-            <NavLink to="/admin/orders" className={linkClass}>
-              <ShoppingCart className="w-4 h-4" />
-              Orders
-            </NavLink>
-          </nav>
-
-          <div className="border-t border-neutral-200 pt-4 mt-4 shrink-0">
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-3 px-4 py-2.5 w-full rounded-xl text-sm font-medium text-neutral-500 hover:bg-red-50 hover:text-red-600 transition cursor-pointer"
-            >
-              <LogOut className="w-4 h-4" />
-              Sign Out
-            </button>
-          </div>
-        </div>
+      {/* Desktop sidebar — hairline rail */}
+      <aside className="hidden w-60 shrink-0 flex-col border-r border-neutral-200 bg-white md:flex">
+        {sidebarContent}
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 overflow-auto p-4 sm:p-6">
+      {/* Main content — paper */}
+      <main className="flex-1 px-4 py-5 sm:px-6 sm:py-6 md:h-full md:overflow-y-auto lg:px-12 lg:py-8">
         <Outlet />
       </main>
     </div>

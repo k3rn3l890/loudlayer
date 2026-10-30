@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { adminApi } from "./api";
-import { Package, ShoppingCart, DollarSign, Users } from "lucide-react";
+import {
+  PageMasthead, MonoCaption, StatusTag, Skeleton, SkeletonRows, EmptyState,
+  formatDate, formatMoney, thClass, tdClass, monoLink,
+} from "./ui";
 
 interface Stats {
   totalProducts: number;
@@ -36,84 +40,110 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-2 border-neutral-900 border-t-transparent rounded-full animate-spin" />
+      <div>
+        {/* Masthead skeleton */}
+        <div className="mb-6 border-b border-neutral-200 pb-5 sm:mb-8 sm:pb-6">
+          <Skeleton className="h-8 w-44 sm:h-10 sm:w-56" />
+          <Skeleton className="mt-3 h-2.5 w-60" />
+        </div>
+
+        {/* Stat strip skeleton */}
+        <div className="mb-8 grid grid-cols-2 gap-px border border-neutral-200 bg-neutral-200 lg:grid-cols-4">
+          {Array.from({ length: 4 }, (_, i) => (
+            <div key={i} className="space-y-3 bg-white px-4 py-5 sm:px-6 sm:py-6">
+              <Skeleton className="h-2.5 w-16 sm:w-20" />
+              <Skeleton className="h-7 w-20 sm:h-8 sm:w-24" />
+            </div>
+          ))}
+        </div>
+
+        <SkeletonRows rows={5} />
       </div>
     );
   }
 
   const cards = [
-    { label: "Total Revenue", value: `₵${stats?.totalRevenue?.toFixed(2) || "0.00"}`, icon: DollarSign, color: "bg-green-500" },
-    { label: "Total Orders", value: stats?.totalOrders || 0, icon: ShoppingCart, color: "bg-blue-500" },
-    { label: "Products", value: stats?.totalProducts || 0, icon: Package, color: "bg-orange-500" },
-    { label: "Customers", value: stats?.totalCustomers || 0, icon: Users, color: "bg-purple-500" },
+    { label: "Total Revenue", value: formatMoney(stats?.totalRevenue ?? 0) },
+    { label: "Total Orders", value: String(stats?.totalOrders ?? 0) },
+    { label: "Products", value: String(stats?.totalProducts ?? 0) },
+    { label: "Customers", value: String(stats?.totalCustomers ?? 0) },
   ];
-
-  const statusColors: Record<string, string> = {
-    pending: "bg-yellow-100 text-yellow-700",
-    processing: "bg-blue-100 text-blue-700",
-    shipped: "bg-purple-100 text-purple-700",
-    delivered: "bg-green-100 text-green-700",
-    cancelled: "bg-red-100 text-red-700",
-  };
 
   return (
     <div>
-      <h1 className="text-xl sm:text-2xl font-bold text-neutral-900 mb-4 sm:mb-6">Dashboard</h1>
+      <PageMasthead
+        title="Dashboard"
+        meta={`LoudLayer Ledger — ${formatDate(new Date().toISOString())}`}
+        actions={
+          <Link to="/admin/orders" className={monoLink}>
+            View all orders <span aria-hidden="true">→</span>
+          </Link>
+        }
+      />
 
-      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
+      {/* Stat strip: one hairline lattice, no cards */}
+      <section aria-label="Key figures" className="mb-8 grid grid-cols-2 gap-px border border-neutral-200 bg-neutral-200 lg:grid-cols-4">
         {cards.map((card) => (
-          <div key={card.label} className="bg-white rounded-xl sm:rounded-2xl border border-neutral-200 p-3 sm:p-5">
-            <div className="flex items-center justify-between mb-2 sm:mb-3">
-              <span className="text-[10px] sm:text-xs font-medium text-neutral-400 font-mono uppercase tracking-wider">{card.label}</span>
-              <div className={`w-7 h-7 sm:w-9 sm:h-9 ${card.color} rounded-lg sm:rounded-xl flex items-center justify-center`}>
-                <card.icon className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
-              </div>
-            </div>
-            <p className="text-lg sm:text-2xl font-bold text-neutral-900">{card.value}</p>
+          <div key={card.label} className="bg-white px-4 py-5 sm:px-6 sm:py-6">
+            <MonoCaption>{card.label}</MonoCaption>
+            <p className="mt-2.5 text-2xl font-extrabold tracking-tight text-zinc-950 tabular-nums sm:text-3xl lg:text-[34px]">
+              {card.value}
+            </p>
           </div>
         ))}
-      </div>
+      </section>
 
-      <div className="bg-white rounded-xl sm:rounded-2xl border border-neutral-200">
-        <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-neutral-100">
-          <h2 className="text-sm font-bold text-neutral-900">Recent Orders</h2>
-        </div>
+      {/* Recent orders — ledger */}
+      <section aria-label="Recent orders">
         {recentOrders.length === 0 ? (
-          <div className="p-6 sm:p-8 text-center text-sm text-neutral-400">No orders yet.</div>
+          <EmptyState>No orders yet — the ledger opens with your first sale.</EmptyState>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-[10px] sm:text-xs text-neutral-400 font-mono uppercase tracking-wider border-b border-neutral-100">
-                  <th className="px-3 sm:px-5 py-2 sm:py-3 font-medium whitespace-nowrap">Order</th>
-                  <th className="px-3 sm:px-5 py-2 sm:py-3 font-medium whitespace-nowrap">Customer</th>
-                  <th className="px-3 sm:px-5 py-2 sm:py-3 font-medium whitespace-nowrap">Total</th>
-                  <th className="px-3 sm:px-5 py-2 sm:py-3 font-medium whitespace-nowrap">Status</th>
-                  <th className="px-3 sm:px-5 py-2 sm:py-3 font-medium whitespace-nowrap">Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentOrders.map((order) => (
-                  <tr key={order.id} className="border-b border-neutral-50 hover:bg-neutral-50 transition">
-                    <td className="px-3 sm:px-5 py-2 sm:py-3 font-mono text-[11px] sm:text-xs font-bold text-neutral-700 whitespace-nowrap">{order.order_number}</td>
-                    <td className="px-3 sm:px-5 py-2 sm:py-3 text-xs sm:text-sm text-neutral-600 truncate max-w-[80px] sm:max-w-none">{order.customer_name || "—"}</td>
-                    <td className="px-3 sm:px-5 py-2 sm:py-3 font-mono text-xs sm:text-sm font-bold whitespace-nowrap">₵{order.total.toFixed(2)}</td>
-                    <td className="px-3 sm:px-5 py-2 sm:py-3 whitespace-nowrap">
-                      <span className={`text-[9px] sm:text-[10px] font-bold px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full uppercase tracking-wider ${statusColors[order.status] || "bg-neutral-100 text-neutral-600"}`}>
-                        {order.status}
-                      </span>
-                    </td>
-                    <td className="px-3 sm:px-5 py-2 sm:py-3 text-[11px] sm:text-xs text-neutral-400 font-mono whitespace-nowrap">
-                      {new Date(order.created_at).toLocaleDateString()}
-                    </td>
+          <div className="border border-neutral-200 bg-white">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-neutral-200">
+                    <th scope="col" className={thClass}>Order</th>
+                    <th scope="col" className={thClass}>Customer</th>
+                    <th scope="col" className={`${thClass} text-right`}>Total</th>
+                    <th scope="col" className={thClass}>Status</th>
+                    <th scope="col" className={`${thClass} hidden md:table-cell`}>Date</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {recentOrders.map((order) => (
+                    <tr
+                      key={order.id}
+                      className="border-b border-neutral-100 transition-colors duration-200 last:border-b-0"
+                    >
+                      <td className={`${tdClass} whitespace-nowrap`}>
+                        <Link
+                          to={`/admin/orders/${order.id}`}
+                          className="font-mono text-xs font-semibold text-zinc-950 underline-offset-4 hover:underline"
+                        >
+                          {order.order_number}
+                        </Link>
+                      </td>
+                      <td className={`${tdClass} max-w-40 truncate text-zinc-600`}>
+                        {order.customer_name || "—"}
+                      </td>
+                      <td className={`${tdClass} whitespace-nowrap text-right font-mono text-xs tabular-nums text-zinc-950`}>
+                        {formatMoney(order.total)}
+                      </td>
+                      <td className={`${tdClass} whitespace-nowrap`}>
+                        <StatusTag status={order.status} />
+                      </td>
+                      <td className={`${tdClass} hidden whitespace-nowrap font-mono text-[11px] text-zinc-500 md:table-cell`}>
+                        {formatDate(order.created_at)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
-      </div>
+      </section>
     </div>
   );
 }

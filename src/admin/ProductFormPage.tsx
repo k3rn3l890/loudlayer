@@ -1,7 +1,8 @@
 import { useEffect, useState, useRef, type ChangeEvent, type FormEvent } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { adminApi } from "./api";
-import { Upload, X, ImageIcon } from "lucide-react";
+import { Upload, X, ArrowLeft } from "lucide-react";
+import { PageMasthead, MonoCaption, Skeleton } from "./ui";
 
 interface ProductForm {
   name: string;
@@ -20,6 +21,14 @@ const emptyForm: ProductForm = {
   name: "", price: "", discount_price: "", discount_percentage: "",
   image: "", category: "", description: "", tags: "", stock: "0", visible: true
 };
+
+const fieldLabel =
+  "mb-1.5 block cursor-pointer font-mono text-[11px] font-medium uppercase tracking-widest text-zinc-600";
+
+const fieldInput =
+  "w-full rounded-none border border-neutral-200 bg-white px-3 py-2.5 text-sm text-zinc-950 placeholder-zinc-400 transition-colors duration-200 focus:border-zinc-950 focus:outline-none focus:ring-2 focus:ring-orange-500";
+
+const fieldHelper = "mt-1.5 text-xs text-zinc-500";
 
 export default function ProductFormPage() {
   const { id } = useParams();
@@ -119,61 +128,91 @@ export default function ProductFormPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-2 border-neutral-900 border-t-transparent rounded-full animate-spin" />
+      <div className="max-w-3xl">
+        <div className="mb-6 border-b border-neutral-200 pb-5 sm:mb-8 sm:pb-6">
+          <Skeleton className="h-8 w-48 sm:h-10 sm:w-60" />
+          <Skeleton className="mt-3 h-2.5 w-52" />
+        </div>
+        <div className="grid grid-cols-1 gap-5 border border-neutral-200 bg-white p-4 sm:grid-cols-2 sm:gap-6 sm:p-6">
+          <div className="space-y-2.5 sm:col-span-2"><Skeleton className="h-2.5 w-14" /><Skeleton className="h-11 w-full" /></div>
+          {Array.from({ length: 4 }, (_, i) => (
+            <div key={i} className="space-y-2.5"><Skeleton className="h-2.5 w-14" /><Skeleton className="h-11 w-full" /></div>
+          ))}
+          <div className="sm:col-span-2"><Skeleton className="h-44 w-full" /></div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="h-full overflow-hidden">
-      <h1 className="text-xl sm:text-2xl font-bold text-neutral-900 mb-3 sm:mb-4">
-        {isEdit ? "Edit Product" : "Add Product"}
-      </h1>
+    <div className="max-w-3xl">
+      <button
+        onClick={() => navigate("/admin/products")}
+        className="mb-5 inline-flex cursor-pointer items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-zinc-500 transition-colors duration-200 hover:text-zinc-950 sm:text-[11px]"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" />
+        All products
+      </button>
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-xl sm:rounded-2xl border border-neutral-200 p-4 sm:p-5 space-y-3 max-h-[calc(100vh-10rem)] overflow-y-auto">
+      <PageMasthead
+        title={isEdit ? "Edit Product" : "Add Product"}
+        meta={isEdit ? "Editing catalogue entry" : "New catalogue entry"}
+      />
+
+      <form onSubmit={handleSubmit} className="space-y-6 border border-neutral-200 bg-white p-4 sm:p-6 mb-10">
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-600 text-xs font-medium px-3 sm:px-4 py-2 rounded-xl">{error}</div>
+          <div role="alert" className="border border-red-200 bg-red-50 px-4 py-2.5 text-xs font-medium text-red-600">
+            {error}
+          </div>
         )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
+        <div className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2">
           <div className="sm:col-span-2">
-            <label className="text-xs font-medium text-neutral-500 mb-1 block">Name *</label>
-            <input name="name" value={form.name} onChange={handleChange} required
-              className="w-full px-4 py-2 rounded-xl border border-neutral-200 bg-white text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/20" />
+            <label htmlFor="product-name" className={fieldLabel}>Name *</label>
+            <input id="product-name" name="name" value={form.name} onChange={handleChange} required className={fieldInput} />
           </div>
           <div>
-            <label className="text-xs font-medium text-neutral-500 mb-1 block">Price *</label>
-            <input name="price" type="number" step="0.01" value={form.price} onChange={handleChange} required
-              className="w-full px-4 py-2 rounded-xl border border-neutral-200 bg-white text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/20" />
+            <label htmlFor="product-price" className={fieldLabel}>Price (₵) *</label>
+            <input id="product-price" name="price" type="number" step="0.01" min="0" value={form.price} onChange={handleChange} required className={`${fieldInput} tabular-nums`} />
           </div>
           <div>
-            <label className="text-xs font-medium text-neutral-500 mb-1 block">Discount %</label>
-            <input name="discount_percentage" value={form.discount_percentage} onChange={handleChange} placeholder="e.g. 45%"
-              className="w-full px-4 py-2 rounded-xl border border-neutral-200 bg-white text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/20" />
+            <label htmlFor="product-discount" className={fieldLabel}>Discount (%)</label>
+            <input
+              id="product-discount"
+              name="discount_percentage"
+              value={form.discount_percentage}
+              onChange={handleChange}
+              placeholder="e.g. 45"
+              aria-describedby="product-discount-helper"
+              className={fieldInput}
+            />
+            <p id="product-discount-helper" className={fieldHelper}>
+              Shown on the storefront as a reduction from the price.
+            </p>
           </div>
           <div className="sm:col-span-2">
-            <label className="text-xs font-medium text-neutral-500 mb-1 block">Image</label>
+            <label className={fieldLabel}>Image</label>
             {imagePreview ? (
-              <div className="relative w-full aspect-[16/9] rounded-xl overflow-hidden border border-neutral-200 bg-zinc-50">
+              <div className="relative aspect-[16/9] w-full overflow-hidden border border-neutral-200 bg-zinc-50">
                 <img
                   src={imagePreview}
                   alt="Product preview"
-                  className="w-full h-full object-contain"
+                  className="h-full w-full object-contain"
                   referrerPolicy="no-referrer"
                 />
                 <button
                   type="button"
                   onClick={handleRemoveImage}
-                  className="absolute top-2 right-2 p-1.5 bg-neutral-900/80 hover:bg-red-600 text-white rounded-lg transition cursor-pointer"
+                  className="absolute right-2 top-2 cursor-pointer p-1.5 text-white transition-colors duration-200 bg-neutral-950/80 hover:bg-red-600"
                   title="Remove image"
+                  aria-label="Remove image"
                 >
-                  <X className="w-3.5 h-3.5" />
+                  <X className="h-3.5 w-3.5" />
                 </button>
               </div>
             ) : (
               <label
-                className={`flex flex-col items-center justify-center w-full aspect-[16/9] rounded-xl border-2 border-dashed border-neutral-300 bg-zinc-50 hover:bg-zinc-100 hover:border-neutral-400 transition cursor-pointer ${
+                className={`flex aspect-[16/9] w-full cursor-pointer flex-col items-center justify-center border border-neutral-200 bg-white transition-colors duration-200 hover:border-zinc-950 hover:bg-zinc-50 ${
                   uploading ? "pointer-events-none opacity-60" : ""
                 }`}
               >
@@ -185,18 +224,18 @@ export default function ProductFormPage() {
                   className="hidden"
                 />
                 {uploading ? (
-                  <div className="flex flex-col items-center gap-2">
-                    <div className="w-6 h-6 border-2 border-neutral-900 border-t-transparent rounded-full animate-spin" />
-                    <span className="text-xs text-neutral-500 font-mono">Uploading...</span>
+                  <div className="flex flex-col items-center gap-2.5">
+                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-neutral-900 border-t-transparent" />
+                    <MonoCaption className="text-[10px]">Uploading</MonoCaption>
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center gap-2">
-                    <div className="w-10 h-10 rounded-full bg-neutral-200 flex items-center justify-center">
-                      <Upload className="w-5 h-5 text-neutral-500" />
+                  <div className="flex flex-col items-center gap-2.5">
+                    <div className="grid h-10 w-10 place-items-center rounded-full border border-neutral-200">
+                      <Upload className="h-4 w-4 text-zinc-500" strokeWidth={1.5} />
                     </div>
                     <div className="text-center">
-                      <span className="text-xs font-medium text-neutral-600">Click to upload image</span>
-                      <p className="text-[10px] text-neutral-400 font-mono mt-0.5">JPG, PNG, WebP, GIF, SVG (max 5MB)</p>
+                      <MonoCaption className="text-[10px] sm:text-[11px]">Upload image</MonoCaption>
+                      <p className="mt-1 font-mono text-[10px] text-zinc-400">JPG · PNG · WebP · GIF · SVG · max 5MB</p>
                     </div>
                   </div>
                 )}
@@ -204,39 +243,79 @@ export default function ProductFormPage() {
             )}
           </div>
           <div>
-            <label className="text-xs font-medium text-neutral-500 mb-1 block">Category</label>
-            <input name="category" value={form.category} onChange={handleChange}
-              className="w-full px-4 py-2 rounded-xl border border-neutral-200 bg-white text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/20" />
+            <label htmlFor="product-category" className={fieldLabel}>Category</label>
+            <input id="product-category" name="category" value={form.category} onChange={handleChange} className={fieldInput} />
           </div>
           <div>
-            <label className="text-xs font-medium text-neutral-500 mb-1 block">Stock</label>
-            <input name="stock" type="number" value={form.stock} onChange={handleChange}
-              className="w-full px-4 py-2 rounded-xl border border-neutral-200 bg-white text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/20" />
+            <label htmlFor="product-stock" className={fieldLabel}>Stock</label>
+            <input
+              id="product-stock"
+              name="stock"
+              type="number"
+              min="0"
+              value={form.stock}
+              onChange={handleChange}
+              aria-describedby="product-stock-helper"
+              className={`${fieldInput} tabular-nums`}
+            />
+            <p id="product-stock-helper" className={fieldHelper}>
+              Set to 0 to show as sold out.
+            </p>
           </div>
           <div className="sm:col-span-2">
-            <label className="text-xs font-medium text-neutral-500 mb-1 block">Tags (comma separated)</label>
-            <input name="tags" value={form.tags} onChange={handleChange} placeholder="Premium, Limited Edition"
-              className="w-full px-4 py-2 rounded-xl border border-neutral-200 bg-white text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/20" />
+            <label htmlFor="product-tags" className={fieldLabel}>Tags</label>
+            <input
+              id="product-tags"
+              name="tags"
+              value={form.tags}
+              onChange={handleChange}
+              placeholder="Premium, Limited Edition"
+              aria-describedby="product-tags-helper"
+              className={fieldInput}
+            />
+            <p id="product-tags-helper" className={fieldHelper}>
+              Separate tags with commas.
+            </p>
           </div>
           <div className="sm:col-span-2">
-            <label className="text-xs font-medium text-neutral-500 mb-1 block">Description</label>
-            <textarea name="description" value={form.description} onChange={handleChange} rows={2}
-              className="w-full px-4 py-2 rounded-xl border border-neutral-200 bg-white text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/20 resize-none" />
+            <label htmlFor="product-description" className={fieldLabel}>Description</label>
+            <textarea
+              id="product-description"
+              name="description"
+              value={form.description}
+              onChange={handleChange}
+              rows={2}
+              className={`${fieldInput} resize-none`}
+            />
           </div>
-          <div className="sm:col-span-2 flex items-center gap-2">
-            <input type="checkbox" name="visible" checked={form.visible} onChange={handleChange}
-              className="w-4 h-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900" />
-            <label className="text-sm text-neutral-600">Visible (shown on storefront)</label>
+          <div className="flex items-center gap-3 sm:col-span-2">
+            <input
+              id="product-visible"
+              type="checkbox"
+              name="visible"
+              checked={form.visible}
+              onChange={handleChange}
+              className="h-4 w-4 cursor-pointer accent-neutral-900 focus:outline-none focus:ring-2 focus:ring-orange-500"
+            />
+            <label htmlFor="product-visible" className="cursor-pointer text-sm text-zinc-700">
+              Visible on storefront
+            </label>
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 pt-1">
-          <button type="submit" disabled={saving || uploading}
-            className="px-6 py-2.5 sm:py-2 bg-neutral-900 text-white text-sm font-bold rounded-xl hover:bg-neutral-800 disabled:opacity-50 transition cursor-pointer">
-            {saving ? "Saving..." : isEdit ? "Update Product" : "Create Product"}
+        <div className="flex flex-col items-stretch gap-3 border-t border-neutral-200 pt-5 sm:flex-row sm:items-center">
+          <button
+            type="submit"
+            disabled={saving || uploading}
+            className="h-11 shrink-0 cursor-pointer rounded-full bg-neutral-950 px-7 text-sm font-semibold text-white transition-colors duration-200 hover:bg-orange-500 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {saving ? "Saving…" : isEdit ? "Update Product" : "Create Product"}
           </button>
-          <button type="button" onClick={() => navigate("/admin/products")}
-            className="px-6 py-2.5 sm:py-2 border border-neutral-200 text-neutral-600 text-sm font-medium rounded-xl hover:bg-neutral-50 transition cursor-pointer">
+          <button
+            type="button"
+            onClick={() => navigate("/admin/products")}
+            className="h-11 cursor-pointer rounded-full border border-neutral-200 px-6 text-sm font-medium text-zinc-600 transition-colors duration-200 hover:border-zinc-950 hover:text-zinc-950"
+          >
             Cancel
           </button>
         </div>
