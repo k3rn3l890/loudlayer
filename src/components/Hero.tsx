@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { ShoppingBag } from "lucide-react";
+import { ShoppingBag, ArrowRight } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { animate, createTimeline, utils } from "animejs";
 import heroImage from "../../loudlayer_assets/heroSection_image-.png";
@@ -180,10 +180,11 @@ export default function Hero({ onExploreClick, onViewStore }: HeroProps) {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.9, duration: 0.6 }}
-              className="mt-6 flex items-center gap-2.5 px-6 py-3 bg-neutral-900 text-white text-sm font-bold rounded-full hover:bg-orange-500 hover:scale-105 active:scale-95 transition-all shadow-lg shadow-neutral-900/20 cursor-pointer z-30"
+              className="group mt-6 sm:mt-8 flex items-center justify-center gap-3 min-w-[200px] sm:min-w-[240px] md:min-w-[280px] px-8 py-4 md:px-12 md:py-5 bg-orange-500 text-neutral-950 text-base sm:text-lg font-bold rounded-full hover:bg-neutral-900 hover:text-white hover:scale-105 active:scale-95 transition-all duration-300 ease-out shadow-lg shadow-orange-500/30 hover:shadow-xl hover:shadow-neutral-900/25 cursor-pointer z-30 select-none"
             >
-              <ShoppingBag className="w-4 h-4" />
+              <ShoppingBag className="w-5 h-5 md:w-6 md:h-6" />
               View Store
+              <ArrowRight className="w-5 h-5 md:w-6 md:h-6 group-hover:translate-x-1.5 transition-transform duration-300" />
             </motion.button>
           </div>
 
