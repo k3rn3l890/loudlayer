@@ -10,7 +10,7 @@ import { mapDbProduct } from "../lib/productMapper";
 import { PLACEHOLDER_IMAGE } from "../lib/supabase";
 import { Product, CartItem } from "../types";
 import { Link, useNavigate } from "react-router-dom";
-import { Heart, Sparkles, X, Check, ShoppingBag, ShoppingCart, Search, Eye } from "lucide-react";
+import { Heart, X, Check, ShoppingBag, ShoppingCart, Search, Eye } from "lucide-react";
 import AddToCartModal from "../components/AddToCartModal";
 
 export default function StorePage() {
@@ -404,7 +404,6 @@ export default function StorePage() {
                   : "bg-orange-500 border-orange-600 shadow-orange-500/20"
               }`}
             >
-              <Sparkles className="w-3.5 h-3.5 shrink-0 animate-spin-slow text-orange-400" />
               <span>{toastMessage}</span>
               <button onClick={() => setToastMessage(null)} className="hover:opacity-80 ml-2 border-l border-white/20 pl-2 cursor-pointer font-bold">✕</button>
             </motion.div>

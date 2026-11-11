@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ArrowUpRight, ArrowRight, Sparkles, AlertCircle } from "lucide-react";
+import { ArrowUpRight, ArrowRight, AlertCircle } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { DIRECTORY_SPOTLIGHT, DIRECTORY_ACCORDIONS } from "../data";
 import accordionImg from "../../loudlayer_assets/accordiongimg.jpg";
@@ -91,7 +91,6 @@ export default function CollectionsDirectory() {
               
               <div className="flex-1 space-y-3">
                 <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-orange-500 animate-pulse" />
                   <span className="font-mono text-[9px] uppercase font-bold tracking-widest text-orange-500">
                     [SPOTLIGHT ARCHIVE]
                   </span>

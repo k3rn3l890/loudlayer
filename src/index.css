@@ -6,13 +6,6 @@
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 }
 
-/* Custom visual styles and micro transition extensions */
-@layer utilities {
-  .animate-spin-slow {
-    animation: spin 20s linear infinite;
-  }
-}
-
 /* Skeleton loading bars (admin ledger) — opacity pulse only, disable for reduced motion */
 @keyframes skeleton-pulse {
   0%,

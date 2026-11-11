@@ -9,7 +9,7 @@ import { useCart } from "../lib/CartContext";
 import { getProductBySlug, getProductReviews, createReview, createOrder, getProducts, notifyOrderEmails } from "../lib/userApi";
 import { mapDbProduct } from "../lib/productMapper";
 import { Product, CartItem, Review, ReviewStats } from "../types";
-import { Heart, ShoppingBag, ShoppingCart, Star, ArrowLeft, Sparkles } from "lucide-react";
+import { Heart, ShoppingBag, ShoppingCart, Star, ArrowLeft } from "lucide-react";
 
 const SIZES = ["S", "M", "L", "XL"];
 
@@ -463,7 +463,6 @@ export default function ProductDetailPage() {
                   : "bg-orange-500 border-orange-600 shadow-orange-500/20"
               }`}
             >
-              <Sparkles className="w-3.5 h-3.5 shrink-0 animate-spin-slow text-orange-400" />
               <span>{toastMessage}</span>
               <button onClick={() => setToastMessage(null)} className="hover:opacity-80 ml-2 border-l border-white/20 pl-2 cursor-pointer font-bold">✕</button>
             </motion.div>

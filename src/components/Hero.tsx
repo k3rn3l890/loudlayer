@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { ShoppingBag, Sparkles } from "lucide-react";
+import { ShoppingBag } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { animate, createTimeline, utils } from "animejs";
 import heroImage from "../../loudlayer_assets/heroSection_image-.png";
@@ -108,11 +108,6 @@ export default function Hero({ onExploreClick, onViewStore }: HeroProps) {
 
   return (
     <section className="relative w-full overflow-hidden bg-zinc-50 border-b border-neutral-200/50 pt-8 pb-14 px-6 md:px-12">
-      {/* Absolute Decorative Symbols */}
-      <div className="absolute top-[40%] left-[10%] opacity-20 pointer-events-none">
-        <Sparkles className="w-5 h-5 text-orange-500 animate-pulse" />
-      </div>
-
       <div className="max-w-7xl mx-auto relative flex flex-col items-center">
         {/* Main Grid: Typo Left + Model Center + Typo Right */}
         <div className="relative w-full grid grid-cols-1 md:grid-cols-12 gap-4 items-center min-h-[460px] md:min-h-[520px]">

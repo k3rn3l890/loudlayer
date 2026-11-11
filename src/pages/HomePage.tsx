@@ -15,7 +15,7 @@ import { useAuth } from "../lib/AuthContext";
 import { useCart } from "../lib/CartContext";
 import { createOrder, notifyOrderEmails } from "../lib/userApi";
 import { Product, CartItem } from "../types";
-import { Heart, Sparkles, X, Check, ShoppingBag } from "lucide-react";
+import { Heart, X, Check, ShoppingBag } from "lucide-react";
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -304,7 +304,6 @@ export default function HomePage() {
                   : "bg-orange-500 border-orange-600 shadow-orange-500/20"
               }`}
             >
-              <Sparkles className="w-3.5 h-3.5 shrink-0 animate-spin-slow text-orange-400" />
               <span>{toastMessage}</span>
               <button
                 onClick={() => setToastMessage(null)}
